@@ -90,8 +90,8 @@ local heavyHitSound = createSound(rootPart, "rbxassetid://4306980885", 0.6) -- �
 
 -- Звуки попадания по стенам/объектам
 local wallHitSound = createSound(rootPart, "rbxassetid://1476374050", 0.4) -- Удар по камню/бетону
-local metalHitSound = createSound(rootPart, "rbxassetid://3932506197", 0.4) -- Удар по металлу
-local woodHitSound = createSound(rootPart, "rbxassetid://3932505696", 0.4) -- Удар по дереву
+local metalHitSound = createSound(rootPart, "rbxassetid://108682776074559", 0.4) -- Удар по металлу
+local woodHitSound = createSound(rootPart, "rbxassetid://9120917813", 0.4) -- Удар по дереву
 
 local parrySound = createSound(rootPart, "rbxassetid://110940207848321", 0.7)
 local blockSound = createSound(rootPart, "rbxassetid://4549835866", 0.5)
