@@ -11,7 +11,20 @@ local damageEvent = Instance.new("RemoteEvent")
 damageEvent.Name = "DamageEvent"
 damageEvent.Parent = ReplicatedStorage
 
+-- Загружаем конфиг боевой системы
+local CombatConfig = require(ReplicatedStorage:WaitForChild("CombatConfig"))
+
 print("DamageHandler: RemoteEvent created")
+
+-- Проверка блокирует ли игрок
+local function isTargetBlocking(targetCharacter)
+	-- Проверяем есть ли у цели значение блока
+	local blockingValue = targetCharacter:FindFirstChild("IsBlocking")
+	if blockingValue and blockingValue.Value then
+		return true
+	end
+	return false
+end
 
 -- Обработка запроса на урон от клиента
 damageEvent.OnServerEvent:Connect(function(player, targetCharacter, damage, knockbackDirection, knockbackForce)
@@ -43,14 +56,26 @@ damageEvent.OnServerEvent:Connect(function(player, targetCharacter, damage, knoc
 		end
 	end
 	
-	-- Наносим урон
-	targetHumanoid:TakeDamage(damage)
-	print("DamageHandler: Dealt", damage, "damage to", targetCharacter.Name, "- Health:", targetHumanoid.Health)
+	-- Проверяем блок цели
+	local finalDamage = damage
+	local wasBlocked = false
 	
-	-- Применяем отталкивание
+	if isTargetBlocking(targetCharacter) then
+		-- Снижаем урон при блоке
+		finalDamage = damage * (1 - CombatConfig.Block.DamageReduction)
+		wasBlocked = true
+		print("DamageHandler: Attack blocked! Damage reduced from", damage, "to", finalDamage)
+	end
+	
+	-- Наносим урон
+	targetHumanoid:TakeDamage(finalDamage)
+	print("DamageHandler: Dealt", finalDamage, "damage to", targetCharacter.Name, "- Health:", targetHumanoid.Health)
+	
+	-- Применяем отталкивание (меньше если заблокировано)
 	if targetRoot and knockbackDirection and knockbackForce then
+		local actualKnockback = wasBlocked and (knockbackForce * 0.3) or knockbackForce
 		local bodyVelocity = Instance.new("BodyVelocity")
-		bodyVelocity.Velocity = knockbackDirection * knockbackForce + Vector3.new(0, knockbackForce * 0.3, 0)
+		bodyVelocity.Velocity = knockbackDirection * actualKnockback + Vector3.new(0, actualKnockback * 0.3, 0)
 		bodyVelocity.MaxForce = Vector3.new(50000, 50000, 50000)
 		bodyVelocity.Parent = targetRoot
 		

@@ -794,11 +794,21 @@ end
 
 
 -- === БЛОКИРОВАНИЕ ===
+-- Создаём значение для сервера
+local blockingValue = character:FindFirstChild("IsBlocking")
+if not blockingValue then
+	blockingValue = Instance.new("BoolValue")
+	blockingValue.Name = "IsBlocking"
+	blockingValue.Value = false
+	blockingValue.Parent = character
+end
+
 local function startBlock()
 	if isAttacking or isStaggered then return end
 
 	isBlocking = true
 	CombatConfig.IsBlocking = true
+	blockingValue.Value = true -- Для сервера
 
 	-- Замедляем движение при блоке
 	humanoid.WalkSpeed = BLOCK_WALK_SPEED
@@ -815,6 +825,7 @@ local function stopBlock()
 
 	isBlocking = false
 	CombatConfig.IsBlocking = false
+	blockingValue.Value = false -- Для сервера
 
 	-- Останавливаем анимацию блока
 	blockTrack:Stop(0.2)
