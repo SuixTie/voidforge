@@ -133,7 +133,7 @@ blockAnim.Looped = true
 local blockTrack = blockAnim
 
 -- Анимация парирования
-local parryAnim = loadAnimation("rbxassetid://100628491515908") -- Парирование (быстрый отбив)
+local parryAnim = loadAnimation("rbxassetid://73242144324267") -- Парирование (быстрый отбив)
 parryAnim.Priority = Enum.AnimationPriority.Action2
 local parryTrack = parryAnim
 
