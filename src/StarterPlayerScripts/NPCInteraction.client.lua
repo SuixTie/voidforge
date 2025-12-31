@@ -3,9 +3,9 @@
 	Voidforge: Eclipse Legacy
 	
 	Особенности:
-	- Показывает кнопку E при приближении к NPC
+	- Использует ProximityPrompt (стандартная система Roblox)
 	- Запускает диалог при нажатии E
-	- Cyberpunk стиль UI
+	- Cyberpunk стиль диалогового окна
 ]]
 
 local Players = game:GetService("Players")
@@ -13,15 +13,13 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local CollectionService = game:GetService("CollectionService")
+local ProximityPromptService = game:GetService("ProximityPromptService")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
 -- === НАСТРОЙКИ ===
 local CONFIG = {
-	InteractDistance = 8, -- Дистанция для взаимодействия
-	InteractKey = Enum.KeyCode.E,
-	
 	-- Cyberpunk цвета
 	PanelColor = Color3.fromRGB(15, 5, 30),
 	CyanColor = Color3.fromRGB(0, 255, 255),
@@ -81,60 +79,18 @@ local currentNPC = nil
 local isInDialogue = false
 local currentDialogueIndex = 1
 
+-- Сохранённые значения для восстановления
+local savedWalkSpeed = 16
+local savedJumpPower = 50
+local savedCameraType = nil
+local dialogueCameraConnection = nil
+
 -- === GUI ===
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "NPCInteractionGui"
 screenGui.ResetOnSpawn = false
 screenGui.IgnoreGuiInset = true
 screenGui.Parent = playerGui
-
--- Кнопка взаимодействия (E)
-local interactPrompt = Instance.new("Frame")
-interactPrompt.Name = "InteractPrompt"
-interactPrompt.Size = UDim2.new(0, 200, 0, 60)
-interactPrompt.Position = UDim2.new(0.5, -100, 0.7, 0)
-interactPrompt.BackgroundColor3 = CONFIG.PanelColor
-interactPrompt.BackgroundTransparency = 0.2
-interactPrompt.BorderSizePixel = 0
-interactPrompt.Visible = false
-interactPrompt.Parent = screenGui
-
-local promptCorner = Instance.new("UICorner")
-promptCorner.CornerRadius = UDim.new(0, 8)
-promptCorner.Parent = interactPrompt
-
-local promptStroke = Instance.new("UIStroke")
-promptStroke.Color = CONFIG.CyanColor
-promptStroke.Thickness = 2
-promptStroke.Parent = interactPrompt
-
-local promptKey = Instance.new("TextLabel")
-promptKey.Name = "Key"
-promptKey.Size = UDim2.new(0, 40, 0, 40)
-promptKey.Position = UDim2.new(0, 10, 0.5, -20)
-promptKey.BackgroundColor3 = CONFIG.CyanColor
-promptKey.BackgroundTransparency = 0.3
-promptKey.Text = "E"
-promptKey.TextColor3 = CONFIG.TextColor
-promptKey.TextSize = 24
-promptKey.Font = Enum.Font.GothamBold
-promptKey.Parent = interactPrompt
-
-local keyCorner = Instance.new("UICorner")
-keyCorner.CornerRadius = UDim.new(0, 6)
-keyCorner.Parent = promptKey
-
-local promptText = Instance.new("TextLabel")
-promptText.Name = "Text"
-promptText.Size = UDim2.new(1, -60, 1, 0)
-promptText.Position = UDim2.new(0, 55, 0, 0)
-promptText.BackgroundTransparency = 1
-promptText.Text = "Поговорить"
-promptText.TextColor3 = CONFIG.TextColor
-promptText.TextSize = 18
-promptText.Font = Enum.Font.Gotham
-promptText.TextXAlignment = Enum.TextXAlignment.Left
-promptText.Parent = interactPrompt
 
 -- === ДИАЛОГОВОЕ ОКНО ===
 local dialogueFrame = Instance.new("Frame")
@@ -196,6 +152,109 @@ local responsesLayout = Instance.new("UIListLayout")
 responsesLayout.SortOrder = Enum.SortOrder.LayoutOrder
 responsesLayout.Padding = UDim.new(0, 8)
 responsesLayout.Parent = responsesFrame
+
+-- === БЛОКИРОВКА ДВИЖЕНИЯ ===
+local function lockPlayerMovement()
+	local character = player.Character
+	if not character then return end
+	
+	local humanoid = character:FindFirstChild("Humanoid")
+	if humanoid then
+		-- Сохраняем текущие значения
+		savedWalkSpeed = humanoid.WalkSpeed
+		savedJumpPower = humanoid.JumpPower
+		
+		-- Блокируем движение
+		humanoid.WalkSpeed = 0
+		humanoid.JumpPower = 0
+		humanoid.JumpHeight = 0
+	end
+	
+	-- Создаём значение для других скриптов
+	local dialogueValue = player:FindFirstChild("InDialogue")
+	if not dialogueValue then
+		dialogueValue = Instance.new("BoolValue")
+		dialogueValue.Name = "InDialogue"
+		dialogueValue.Parent = player
+	end
+	dialogueValue.Value = true
+end
+
+local function unlockPlayerMovement()
+	local character = player.Character
+	if not character then return end
+	
+	local humanoid = character:FindFirstChild("Humanoid")
+	if humanoid then
+		-- Восстанавливаем движение
+		humanoid.WalkSpeed = savedWalkSpeed
+		humanoid.JumpPower = savedJumpPower
+		humanoid.JumpHeight = 7.2
+	end
+	
+	-- Убираем значение диалога
+	local dialogueValue = player:FindFirstChild("InDialogue")
+	if dialogueValue then
+		dialogueValue.Value = false
+	end
+end
+
+-- === КАМЕРА ДИАЛОГА ===
+local camera = workspace.CurrentCamera
+
+local function setupDialogueCamera(npc)
+	local character = player.Character
+	if not character then return end
+	
+	local rootPart = character:FindFirstChild("HumanoidRootPart")
+	local npcRoot = npc:FindFirstChild("HumanoidRootPart")
+	if not rootPart or not npcRoot then return end
+	
+	-- Сохраняем тип камеры
+	savedCameraType = camera.CameraType
+	camera.CameraType = Enum.CameraType.Scriptable
+	
+	-- Поворачиваем игрока к NPC
+	local directionToNPC = (npcRoot.Position - rootPart.Position)
+	directionToNPC = Vector3.new(directionToNPC.X, 0, directionToNPC.Z).Unit
+	rootPart.CFrame = CFrame.lookAt(rootPart.Position, rootPart.Position + directionToNPC)
+	
+	-- Позиция камеры: справа за спиной игрока, смотрит на обоих
+	local midPoint = (rootPart.Position + npcRoot.Position) / 2 + Vector3.new(0, 2, 0)
+	local rightOffset = rootPart.CFrame.RightVector * 4
+	local backOffset = -directionToNPC * 3
+	local cameraPosition = rootPart.Position + rightOffset + backOffset + Vector3.new(0, 2.5, 0)
+	
+	-- Плавно перемещаем камеру
+	local targetCFrame = CFrame.lookAt(cameraPosition, midPoint)
+	
+	-- Анимация камеры
+	local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	local tween = TweenService:Create(camera, tweenInfo, {CFrame = targetCFrame})
+	tween:Play()
+	
+	-- Поддерживаем позицию камеры
+	dialogueCameraConnection = RunService.RenderStepped:Connect(function()
+		if not isInDialogue then return end
+		-- Камера остаётся на месте (уже установлена твином)
+	end)
+end
+
+local function restoreCamera()
+	-- Отключаем обновление камеры диалога
+	if dialogueCameraConnection then
+		dialogueCameraConnection:Disconnect()
+		dialogueCameraConnection = nil
+	end
+	
+	-- Восстанавливаем тип камеры
+	if savedCameraType then
+		camera.CameraType = savedCameraType
+		savedCameraType = nil
+	else
+		camera.CameraType = Enum.CameraType.Custom
+	end
+end
 
 -- === ФУНКЦИИ ===
 local function clearResponses()
@@ -295,8 +354,13 @@ function openDialogue(npc)
 	isInDialogue = true
 	currentDialogueIndex = 1
 	
-	-- Скрываем prompt, показываем диалог
-	interactPrompt.Visible = false
+	-- Блокируем движение игрока
+	lockPlayerMovement()
+	
+	-- Устанавливаем камеру диалога
+	setupDialogueCamera(npc)
+	
+	-- Показываем диалог
 	dialogueFrame.Visible = true
 	
 	-- Показываем первый диалог
@@ -312,48 +376,24 @@ function closeDialogue()
 	currentNPC = nil
 	dialogueFrame.Visible = false
 	clearResponses()
+	
+	-- Разблокируем движение
+	unlockPlayerMovement()
+	
+	-- Восстанавливаем камеру
+	restoreCamera()
 end
 
--- === ПОИСК БЛИЖАЙШЕГО NPC ===
-local function findNearestNPC()
-	local character = player.Character
-	if not character then return nil end
-	
-	local rootPart = character:FindFirstChild("HumanoidRootPart")
-	if not rootPart then return nil end
-	
-	local nearestNPC = nil
-	local nearestDistance = CONFIG.InteractDistance
-	
-	-- Ищем NPC с тегом InvulnerableNPC
-	for _, npc in ipairs(CollectionService:GetTagged("InvulnerableNPC")) do
-		if npc:IsA("Model") then
-			local npcRoot = npc:FindFirstChild("HumanoidRootPart")
-			if npcRoot then
-				local distance = (npcRoot.Position - rootPart.Position).Magnitude
-				if distance < nearestDistance then
-					nearestDistance = distance
-					nearestNPC = npc
-				end
-			end
-		end
-	end
-	
-	return nearestNPC
-end
-
--- === ОБНОВЛЕНИЕ ===
-RunService.RenderStepped:Connect(function()
+-- === ОБРАБОТКА PROXIMITYPROMPT ===
+ProximityPromptService.PromptTriggered:Connect(function(prompt, playerWhoTriggered)
+	if playerWhoTriggered ~= player then return end
+	if prompt.Name ~= "TalkPrompt" then return end
 	if isInDialogue then return end
 	
-	local nearestNPC = findNearestNPC()
-	
-	if nearestNPC and NPC_DIALOGUES[nearestNPC.Name] then
-		interactPrompt.Visible = true
-		currentNPC = nearestNPC
-	else
-		interactPrompt.Visible = false
-		currentNPC = nil
+	-- Находим NPC
+	local npc = prompt.Parent and prompt.Parent.Parent
+	if npc and NPC_DIALOGUES[npc.Name] then
+		openDialogue(npc)
 	end
 end)
 
@@ -361,39 +401,26 @@ end)
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then return end
 	
-	-- E - взаимодействие
-	if input.KeyCode == CONFIG.InteractKey then
-		if isInDialogue then
-			-- Можно добавить быстрый выбор по номерам
-		elseif currentNPC then
-			openDialogue(currentNPC)
-		end
-	end
-	
-	-- TAB или Escape - закрыть диалог
-	if input.KeyCode == Enum.KeyCode.Tab or input.KeyCode == Enum.KeyCode.Escape then
+	-- TAB - закрыть диалог
+	if input.KeyCode == Enum.KeyCode.Tab then
 		if isInDialogue then
 			closeDialogue()
 		end
 	end
 	
 	-- Цифры 1-9 для быстрого выбора ответа
-	if isInDialogue then
+	if isInDialogue and currentNPC then
 		local keyNumber = tonumber(input.KeyCode.Name:match("(%d)"))
 		if keyNumber then
-			local responseButton = responsesFrame:FindFirstChild("Response" .. keyNumber)
-			if responseButton then
-				-- Симулируем клик
-				local npcData = NPC_DIALOGUES[currentNPC.Name]
-				if npcData then
-					local dialogue = npcData.dialogues[currentDialogueIndex]
-					if dialogue and dialogue.responses[keyNumber] then
-						local nextDialogue = dialogue.responses[keyNumber].next
-						if nextDialogue then
-							showDialogue(nextDialogue)
-						else
-							closeDialogue()
-						end
+			local npcData = NPC_DIALOGUES[currentNPC.Name]
+			if npcData then
+				local dialogue = npcData.dialogues[currentDialogueIndex]
+				if dialogue and dialogue.responses[keyNumber] then
+					local nextDialogue = dialogue.responses[keyNumber].next
+					if nextDialogue then
+						showDialogue(nextDialogue)
+					else
+						closeDialogue()
 					end
 				end
 			end
