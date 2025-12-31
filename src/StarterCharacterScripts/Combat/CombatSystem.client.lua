@@ -132,8 +132,8 @@ blockAnim.Priority = Enum.AnimationPriority.Action
 blockAnim.Looped = true
 local blockTrack = blockAnim
 
--- Анимация парирования
-local parryAnim = loadAnimation("rbxassetid://73242144324267") -- Парирование (быстрый отбив)
+-- Анимация парирования (отдельная от блока - быстрый отбив рукой)
+local parryAnim = loadAnimation("rbxassetid://104093633348686") -- Парирование (быстрый отбив)
 parryAnim.Priority = Enum.AnimationPriority.Action2
 local parryTrack = parryAnim
 
@@ -946,6 +946,7 @@ local function toggleLockOn()
 	if lockedTarget then
 		-- Отключаем lock-on
 		lockedTarget = nil
+		CombatConfig.IsLockedOn = false -- Сообщаем другим скриптам
 		if lockOnIndicator then
 			lockOnIndicator:Destroy()
 			lockOnIndicator = nil
@@ -955,6 +956,7 @@ local function toggleLockOn()
 		-- Включаем lock-on
 		lockedTarget = findNearestTarget()
 		if lockedTarget then
+			CombatConfig.IsLockedOn = true -- Сообщаем другим скриптам
 			-- Создаём индикатор
 			lockOnIndicator = Instance.new("BillboardGui")
 			lockOnIndicator.Name = "LockOnIndicator"

@@ -1,0 +1,13 @@
+{
+  "name": "Auto Git Push",
+  "description": "Автоматически коммитит и пушит изменения при сохранении Lua файлов",
+  "trigger": {
+    "type": "onFileSave",
+    "pattern": "**/*.lua"
+  },
+  "action": {
+    "type": "shell",
+    "command": "git add -A && git commit -m \"Auto-save: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')\" && git push origin main"
+  },
+  "enabled": true
+}

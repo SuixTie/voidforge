@@ -10,6 +10,7 @@ CombatConfig.IsAttacking = false
 CombatConfig.IsBlocking = false
 CombatConfig.IsParrying = false
 CombatConfig.IsStaggered = false
+CombatConfig.IsLockedOn = false -- Lock-on активен
 CombatConfig.ComboCount = 0
 CombatConfig.LastAttackTime = 0
 CombatConfig.CurrentStance = "Light"

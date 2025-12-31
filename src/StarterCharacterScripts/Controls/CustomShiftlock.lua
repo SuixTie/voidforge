@@ -7,6 +7,7 @@ local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 local RunConfig = require(game.ReplicatedStorage.RunConfig)
 local LedgeGrabConfig = require(game.ReplicatedStorage.LedgeGrabConfig)
+local CombatConfig = require(game.ReplicatedStorage.CombatConfig)
 
 -- === НАСТРОЙКИ ===
 local LOCK_KEY = Enum.KeyCode.LeftControl 
@@ -116,12 +117,15 @@ RunService.RenderStepped:Connect(function()
 		-- Плавный переход к нужному смещению
 		humanoid.CameraOffset = humanoid.CameraOffset:Lerp(targetOffset, 0.2)
 
-		-- Не поворачиваем игрока если он висит на краю
-		if not LedgeGrabConfig.IsHanging then
+		-- Не поворачиваем игрока если он висит на краю ИЛИ если активен lock-on
+		if not LedgeGrabConfig.IsHanging and not CombatConfig.IsLockedOn then
 			humanoid.AutoRotate = false
 			local lookVector = camera.CFrame.LookVector
 			local flatLookVector = Vector3.new(lookVector.X, 0, lookVector.Z).Unit
 			rootPart.CFrame = rootPart.CFrame:Lerp(CFrame.lookAt(rootPart.Position, rootPart.Position + flatLookVector), 0.2)
+		elseif CombatConfig.IsLockedOn then
+			-- Lock-on активен - не мешаем боевой системе поворачивать персонажа
+			humanoid.AutoRotate = false
 		end
 	else
 		-- ОБЫЧНЫЙ РЕЖИМ (НЕ ШИФТЛОК)
