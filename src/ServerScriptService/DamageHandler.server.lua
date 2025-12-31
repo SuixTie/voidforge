@@ -5,6 +5,7 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
+local CollectionService = game:GetService("CollectionService")
 
 -- Создаём RemoteEvent для урона
 local damageEvent = Instance.new("RemoteEvent")
@@ -26,6 +27,11 @@ local function isTargetBlocking(targetCharacter)
 	return false
 end
 
+-- Проверка является ли цель неуязвимым NPC
+local function isInvulnerableNPC(targetCharacter)
+	return CollectionService:HasTag(targetCharacter, "InvulnerableNPC")
+end
+
 -- Обработка запроса на урон от клиента
 damageEvent.OnServerEvent:Connect(function(player, targetCharacter, damage, knockbackDirection, knockbackForce)
 	-- Проверяем что цель существует
@@ -35,6 +41,12 @@ damageEvent.OnServerEvent:Connect(function(player, targetCharacter, damage, knoc
 	
 	local targetHumanoid = targetCharacter:FindFirstChild("Humanoid")
 	if not targetHumanoid or targetHumanoid.Health <= 0 then
+		return
+	end
+	
+	-- Проверяем что это не неуязвимый NPC
+	if isInvulnerableNPC(targetCharacter) then
+		print("DamageHandler: Target is invulnerable NPC -", targetCharacter.Name)
 		return
 	end
 	

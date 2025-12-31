@@ -28,10 +28,42 @@ local CONFIG = {
 	DeathSoundVolume = 0.05,
 	RagdollDuration = 4,       -- Время рагдолла перед исчезновением
 	DummyNames = {"TrainingDummy", "Dummy", "CombatDummy"}, -- Имена для поиска
+	IdleAnimationId = "rbxassetid://82153277493530", -- Idle анимация для R6
 }
 
 -- === ХРАНИЛИЩЕ ДАММИ ===
 local dummySpawnPoints = {} -- [dummy] = CFrame
+
+-- === ФУНКЦИЯ ВОСПРОИЗВЕДЕНИЯ IDLE АНИМАЦИИ ===
+local function playIdleAnimation(dummy)
+	local humanoid = dummy:FindFirstChild("Humanoid")
+	if not humanoid then return end
+	
+	-- Ждём Animator или создаём его
+	local animator = humanoid:FindFirstChildOfClass("Animator")
+	if not animator then
+		animator = Instance.new("Animator")
+		animator.Parent = humanoid
+	end
+	
+	-- Создаём и загружаем анимацию
+	local idleAnim = Instance.new("Animation")
+	idleAnim.AnimationId = CONFIG.IdleAnimationId
+	
+	local success, idleTrack = pcall(function()
+		return animator:LoadAnimation(idleAnim)
+	end)
+	
+	if success and idleTrack then
+		idleTrack.Priority = Enum.AnimationPriority.Idle
+		idleTrack.Looped = true
+		idleTrack:Play()
+		print("DummyManager: Idle animation started for", dummy.Name)
+		return idleTrack
+	else
+		warn("DummyManager: Failed to load idle animation for", dummy.Name)
+	end
+end
 
 -- === ФУНКЦИЯ РАГДОЛЛА ===
 local function applyRagdoll(character)
@@ -123,8 +155,16 @@ local function setupDummy(dummy, originalTemplate)
 	-- Отключаем автоматическое удаление
 	humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, true)
 	
+	-- Запускаем idle анимацию
+	local idleTrack = playIdleAnimation(dummy)
+	
 	-- Обработка смерти
 	humanoid.Died:Connect(function()
+		-- Останавливаем idle анимацию
+		if idleTrack then
+			idleTrack:Stop()
+		end
+		
 		-- Звук смерти
 		playDeathSound(dummy)
 		
