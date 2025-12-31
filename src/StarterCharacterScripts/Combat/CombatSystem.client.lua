@@ -85,11 +85,11 @@ local swingSound = createSound(rootPart, "rbxassetid://8907343824", 0.4)
 local heavySwingSound = createSound(rootPart, "rbxassetid://9076453292", 0.5)
 
 -- Звуки попадания по врагам
-local lightHitSound = createSound(rootPart, "rbxassetid://3932505367", 0.5) -- Лёгкий удар по телу
-local heavyHitSound = createSound(rootPart, "rbxassetid://4810807775", 0.6) -- Тяжёлый удар по телу
+local lightHitSound = createSound(rootPart, "rbxassetid://3932505023", 0.5) -- Лёгкий удар по телу
+local heavyHitSound = createSound(rootPart, "rbxassetid://4306980885", 0.6) -- Тяжёлый удар по телу
 
 -- Звуки попадания по стенам/объектам
-local wallHitSound = createSound(rootPart, "rbxassetid://3932505554", 0.4) -- Удар по камню/бетону
+local wallHitSound = createSound(rootPart, "rbxassetid://1476374050", 0.4) -- Удар по камню/бетону
 local metalHitSound = createSound(rootPart, "rbxassetid://3932506197", 0.4) -- Удар по металлу
 local woodHitSound = createSound(rootPart, "rbxassetid://3932505696", 0.4) -- Удар по дереву
 
@@ -196,7 +196,7 @@ end
 -- === VFX ПОПАДАНИЯ ===
 local function createHitEffect(position, attackType)
 	local isHeavy = attackType == "Heavy"
-	
+
 	-- Основной контейнер эффекта
 	local effect = Instance.new("Part")
 	effect.Name = "HitEffect"
@@ -270,13 +270,13 @@ local function createHitEffect(position, attackType)
 	flashPart.CanCollide = false
 	flashPart.Transparency = 1
 	flashPart.Parent = workspace
-	
+
 	local pointLight = Instance.new("PointLight")
 	pointLight.Color = Color3.fromRGB(255, 150, 100)
 	pointLight.Brightness = isHeavy and 3 or 2
 	pointLight.Range = isHeavy and 8 or 5
 	pointLight.Parent = flashPart
-	
+
 	-- Затухание света
 	task.spawn(function()
 		for i = 1, 10 do
@@ -298,7 +298,7 @@ local function createHitEffect(position, attackType)
 	shockwave.Color = Color3.fromRGB(255, 200, 150)
 	shockwave.Transparency = 0.5
 	shockwave.Parent = workspace
-	
+
 	-- Анимация расширения ударной волны
 	task.spawn(function()
 		local startSize = shockwave.Size
@@ -349,7 +349,7 @@ local function createHitEffect(position, attackType)
 		line.Color = Color3.fromRGB(255, 220, 180)
 		line.Transparency = 0.3
 		line.Parent = workspace
-		
+
 		task.spawn(function()
 			for j = 1, 8 do
 				task.wait(0.02)
@@ -379,33 +379,33 @@ local function createSwingEffect(attackType, attackIndex)
 			armName = "Right Arm"
 		end
 	end
-	
+
 	local arm = character:FindFirstChild(armName)
 	if not arm then return end
-	
+
 	-- Настройки в зависимости от типа атаки
 	local swingColor = attackType == "Heavy" 
 		and Color3.fromRGB(255, 255, 255)  -- Белый для тяжёлых
 		or Color3.fromRGB(200, 200, 255)   -- Светло-голубой для лёгких
-	
+
 	local trailEndColor = attackType == "Heavy"
 		and Color3.fromRGB(200, 200, 200)  -- Светло-серый для тяжёлых
 		or Color3.fromRGB(100, 100, 150)   -- Тёмно-голубой для лёгких
-	
+
 	local trailLength = attackType == "Heavy" and 0.4 or 0.25
 	local trailWidth = attackType == "Heavy" and 1.2 or 0.8
-	
+
 	-- Создаём attachment'ы для trail
 	local attachment0 = Instance.new("Attachment")
 	attachment0.Name = "SwingTrailStart"
 	attachment0.Position = Vector3.new(0, -0.8, 0) -- Низ руки
 	attachment0.Parent = arm
-	
+
 	local attachment1 = Instance.new("Attachment")
 	attachment1.Name = "SwingTrailEnd"
 	attachment1.Position = Vector3.new(0, 0.8, 0) -- Верх руки
 	attachment1.Parent = arm
-	
+
 	-- Создаём Trail
 	local trail = Instance.new("Trail")
 	trail.Name = "SwingTrail"
@@ -416,30 +416,30 @@ local function createSwingEffect(attackType, attackIndex)
 	trail.FaceCamera = true
 	trail.LightEmission = attackType == "Heavy" and 0.5 or 0.3
 	trail.LightInfluence = 0.5
-	
+
 	-- Градиент цвета (яркий -> прозрачный)
 	trail.Color = ColorSequence.new({
 		ColorSequenceKeypoint.new(0, swingColor),
 		ColorSequenceKeypoint.new(0.5, swingColor),
 		ColorSequenceKeypoint.new(1, trailEndColor),
 	})
-	
+
 	-- Градиент прозрачности
 	trail.Transparency = NumberSequence.new({
 		NumberSequenceKeypoint.new(0, 0.2),
 		NumberSequenceKeypoint.new(0.3, 0.4),
 		NumberSequenceKeypoint.new(1, 1),
 	})
-	
+
 	-- Ширина следа
 	trail.WidthScale = NumberSequence.new({
 		NumberSequenceKeypoint.new(0, trailWidth),
 		NumberSequenceKeypoint.new(0.5, trailWidth * 0.7),
 		NumberSequenceKeypoint.new(1, 0),
 	})
-	
+
 	trail.Parent = arm
-	
+
 	-- Также добавляем частицы на руку
 	local swingParticles = Instance.new("ParticleEmitter")
 	swingParticles.Name = "SwingParticles"
@@ -458,7 +458,7 @@ local function createSwingEffect(attackType, attackIndex)
 	swingParticles.Rate = 50
 	swingParticles.LightEmission = attackType == "Heavy" and 0.4 or 0.2
 	swingParticles.Parent = arm
-	
+
 	-- Удаляем эффекты после атаки
 	local duration = attackType == "Heavy" and 0.6 or 0.35
 	task.delay(duration, function()
@@ -566,13 +566,13 @@ end
 local function checkWallHit(range, attackType)
 	local rayOrigin = rootPart.Position
 	local rayDirection = rootPart.CFrame.LookVector * (range + 1)
-	
+
 	local rayParams = RaycastParams.new()
 	rayParams.FilterType = Enum.RaycastFilterType.Exclude
 	rayParams.FilterDescendantsInstances = {character}
-	
+
 	local result = workspace:Raycast(rayOrigin, rayDirection, rayParams)
-	
+
 	if result and result.Instance then
 		-- Проверяем что это не персонаж
 		local parent = result.Instance.Parent
@@ -584,7 +584,7 @@ local function checkWallHit(range, attackType)
 			return true
 		end
 	end
-	
+
 	return false
 end
 
@@ -653,20 +653,20 @@ end
 local function canPerformAttack()
 	-- Проверяем бег
 	if RunConfig and RunConfig.Running then return false end
-	
+
 	-- Проверяем присед
 	local isCrouchingValue = player:FindFirstChild("IsCrouching")
 	if isCrouchingValue and isCrouchingValue.Value then return false end
-	
+
 	-- Проверяем ползание
 	if RunConfig and RunConfig.isProne then return false end
-	
+
 	-- Проверяем вис на уступе
 	if LedgeGrabConfig and LedgeGrabConfig.IsHanging then return false end
-	
+
 	-- Проверяем блок
 	if isBlocking then return false end
-	
+
 	return true
 end
 
@@ -698,7 +698,7 @@ local function performAttack(attackType)
 	CombatConfig.IsAttacking = true
 	lastAttackTime = tick()
 	comboCount = comboCount + 1
-	
+
 	-- Замедляем движение при атаке
 	humanoid.WalkSpeed = ATTACK_WALK_SPEED
 
@@ -768,7 +768,7 @@ local function performAttack(attackType)
 	task.delay(attackData.duration, function()
 		isAttacking = false
 		CombatConfig.IsAttacking = false
-		
+
 		-- Восстанавливаем скорость (если не блокируем)
 		if not isBlocking then
 			humanoid.WalkSpeed = NORMAL_WALK_SPEED
@@ -1062,7 +1062,7 @@ humanoid.Died:Connect(function()
 	if currentAttackTrack then
 		currentAttackTrack:Stop()
 	end
-	
+
 	blockTrack:Stop()
 	parryTrack:Stop()
 end)
