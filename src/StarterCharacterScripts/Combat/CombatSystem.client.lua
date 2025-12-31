@@ -133,7 +133,7 @@ blockAnim.Looped = true
 local blockTrack = blockAnim
 
 -- Анимация парирования (отдельная от блока - быстрый отбив рукой)
-local parryAnim = loadAnimation("rbxassetid://104093633348686") -- Парирование (быстрый отбив)
+local parryAnim = loadAnimation("rbxassetid://73242144324267") -- Парирование (быстрый отбив)
 parryAnim.Priority = Enum.AnimationPriority.Action2
 local parryTrack = parryAnim
 
@@ -562,6 +562,83 @@ local function createWallHitEffect(position, normal, material)
 	Debris:AddItem(effect, 1.5)
 end
 
+-- === DAMAGE LABEL (ВСПЛЫВАЮЩИЙ УРОН) ===
+local function createDamageLabel(position, damage, isCritical)
+	local damageGui = Instance.new("BillboardGui")
+	damageGui.Name = "DamageLabel"
+	damageGui.Size = UDim2.new(0, 100, 0, 50)
+	damageGui.StudsOffset = Vector3.new(math.random(-10, 10) / 10, 2, 0) -- Случайное смещение
+	damageGui.AlwaysOnTop = true
+	damageGui.MaxDistance = 100
+	
+	-- Создаём Part для привязки
+	local anchor = Instance.new("Part")
+	anchor.Name = "DamageLabelAnchor"
+	anchor.Size = Vector3.new(0.1, 0.1, 0.1)
+	anchor.Position = position
+	anchor.Anchored = true
+	anchor.CanCollide = false
+	anchor.Transparency = 1
+	anchor.Parent = workspace
+	
+	damageGui.Adornee = anchor
+	damageGui.Parent = player.PlayerGui
+	
+	-- Текст урона
+	local damageText = Instance.new("TextLabel")
+	damageText.Name = "DamageText"
+	damageText.Size = UDim2.new(1, 0, 1, 0)
+	damageText.BackgroundTransparency = 1
+	damageText.Text = tostring(math.floor(damage))
+	damageText.TextScaled = true
+	damageText.Font = Enum.Font.GothamBold
+	
+	-- Цвет в зависимости от урона
+	if isCritical or damage >= 30 then
+		damageText.TextColor3 = Color3.fromRGB(255, 50, 50) -- Красный для крита/большого урона
+		damageText.Text = tostring(math.floor(damage)) .. "!"
+	elseif damage >= 20 then
+		damageText.TextColor3 = Color3.fromRGB(255, 150, 50) -- Оранжевый
+	else
+		damageText.TextColor3 = Color3.fromRGB(255, 255, 255) -- Белый
+	end
+	
+	damageText.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	damageText.TextStrokeTransparency = 0.3
+	damageText.Parent = damageGui
+	
+	-- Анимация: поднимается вверх и исчезает
+	task.spawn(function()
+		local startY = damageGui.StudsOffset.Y
+		local duration = 1.0
+		local startTime = tick()
+		
+		while tick() - startTime < duration do
+			local progress = (tick() - startTime) / duration
+			local easeOut = 1 - (1 - progress) ^ 2 -- Ease out quad
+			
+			-- Поднимаем вверх
+			damageGui.StudsOffset = Vector3.new(
+				damageGui.StudsOffset.X,
+				startY + (easeOut * 2),
+				0
+			)
+			
+			-- Уменьшаем прозрачность в конце
+			if progress > 0.5 then
+				local fadeProgress = (progress - 0.5) / 0.5
+				damageText.TextTransparency = fadeProgress
+				damageText.TextStrokeTransparency = 0.3 + (fadeProgress * 0.7)
+			end
+			
+			task.wait()
+		end
+		
+		damageGui:Destroy()
+		anchor:Destroy()
+	end)
+end
+
 -- === ПРОВЕРКА УДАРА ПО СТЕНЕ ===
 local function checkWallHit(range, attackType)
 	local rayOrigin = rootPart.Position
@@ -634,6 +711,10 @@ local function createHitbox(range, damage, knockback, attackType)
 
 				-- VFX попадания
 				createHitEffect(part.Position, attackType)
+				
+				-- Всплывающий урон
+				local isCritical = attackType == "Heavy" and damage >= 30
+				createDamageLabel(part.Position, damage, isCritical)
 
 				-- Оповещаем о попадании
 				combatEvent:Fire("hit", targetChar, damage)
@@ -960,7 +1041,7 @@ local function toggleLockOn()
 			-- Создаём индикатор
 			lockOnIndicator = Instance.new("BillboardGui")
 			lockOnIndicator.Name = "LockOnIndicator"
-			lockOnIndicator.Size = UDim2.new(2, 0, 2, 0)
+			lockOnIndicator.Size = UDim2.new(1.2, 0, 1.2, 0)
 			lockOnIndicator.StudsOffset = Vector3.new(0, 3, 0)
 			lockOnIndicator.Adornee = lockedTarget:FindFirstChild("HumanoidRootPart")
 			lockOnIndicator.Parent = player.PlayerGui
@@ -968,7 +1049,7 @@ local function toggleLockOn()
 			local indicator = Instance.new("ImageLabel")
 			indicator.Size = UDim2.new(1, 0, 1, 0)
 			indicator.BackgroundTransparency = 1
-			indicator.Image = "rbxassetid://6031075938" -- Круглый индикатор
+			indicator.Image = "rbxassetid://302248702" -- Lock-on метка
 			indicator.ImageColor3 = Color3.fromRGB(255, 50, 50)
 			indicator.Parent = lockOnIndicator
 
