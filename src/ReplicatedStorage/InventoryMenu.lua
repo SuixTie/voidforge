@@ -10,10 +10,15 @@ local UserInputService = game:GetService("UserInputService")
 
 local ContextActionService = game:GetService("ContextActionService")
 local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 local mouse = player:GetMouse()
+
+-- === REMOTE FUNCTIONS ===
+local remoteFolder = ReplicatedStorage:WaitForChild("Remotes", 5)
+local getInventoryFunc = remoteFolder and remoteFolder:WaitForChild("GetInventory", 5)
 
 -- === ЦВЕТА CYBERPUNK ===
 local COLORS = {
@@ -63,6 +68,11 @@ local cameraTransitionAlpha = 0 -- Для плавного перехода ка
 local savedShiftLockState = false -- Сохраняем состояние шифтлока
 local allSlots = {} -- Все слоты для hover системы
 local currentHoveredSlot = nil -- Текущий слот под курсором
+
+-- Forward declarations
+local updateInventoryDisplay
+local setSlotItem
+local findInventorySlot
 
 -- === ГЛОБАЛЬНЫЙ ФЛАГ ===
 local inventoryOpenValue = player:FindFirstChild("InventoryMenuOpen")
@@ -334,6 +344,18 @@ local function openInventory()
 	-- Создаем Part сначала
 	inventoryPart, surfaceGui = createInventoryPart()
 
+	-- Запрашиваем текущий инвентарь с сервера
+	task.spawn(function()
+		if getInventoryFunc then
+			local success, slots = pcall(function()
+				return getInventoryFunc:InvokeServer()
+			end)
+			if success and slots then
+				updateInventoryDisplay(slots)
+			end
+		end
+	end)
+
 	-- Вычисляем позицию камеры относительно панели (по центру, под углом)
 	if inventoryPart then
 		local panelCF = inventoryPart.CFrame
@@ -444,39 +466,18 @@ local function closeInventory()
 		updateConnection = nil
 	end
 
-	-- Плавно возвращаем камеру к персонажу перед переключением типа
+	-- Восстанавливаем камеру - просто переключаем тип на Custom
+	-- Roblox сам вернёт камеру в правильную позицию
 	local camera = workspace.CurrentCamera
-	local character = player.Character
-	local hrp = character and character:FindFirstChild("HumanoidRootPart")
 	
-	if hrp then
-		-- Вычисляем позицию камеры за персонажем (стандартная позиция third-person)
-		local targetCameraPos = hrp.CFrame * CFrame.new(0, 2, 8) -- За спиной, выше
-		local targetCameraCFrame = CFrame.lookAt(targetCameraPos.Position, hrp.Position + Vector3.new(0, 1.5, 0))
-		
-		-- Плавная анимация возврата камеры
-		local cameraTween = TweenService:Create(camera, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			CFrame = targetCameraCFrame
-		})
-		cameraTween:Play()
-		
-		-- После анимации восстанавливаем тип камеры
-		cameraTween.Completed:Connect(function()
-			if savedCameraType then
-				camera.CameraType = savedCameraType
-				savedCameraType = nil
-			end
-			savedCameraCFrame = nil
-		end)
+	if savedCameraType then
+		camera.CameraType = savedCameraType
+		savedCameraType = nil
 	else
-		-- Если нет персонажа, просто восстанавливаем тип
-		if savedCameraType then
-			camera.CameraType = savedCameraType
-			savedCameraType = nil
-		end
-		savedCameraCFrame = nil
+		camera.CameraType = Enum.CameraType.Custom
 	end
 	
+	savedCameraCFrame = nil
 	fixedCameraCFrame = nil
 
 	-- Анимация исчезновения
@@ -545,7 +546,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 end)
 
 -- === ФУНКЦИЯ ОТОБРАЖЕНИЯ 3D МОДЕЛИ В СЛОТЕ ===
-local function setSlotItem(slot, itemData)
+setSlotItem = function(slot, itemData)
 	local viewport = slot:FindFirstChild("ItemViewport")
 	if not viewport then return end
 	
@@ -617,13 +618,13 @@ local function setSlotItem(slot, itemData)
 	
 	clone.Parent = worldModel
 	
-	-- Настраиваем камеру чтобы модель была видна целиком
+	-- Настраиваем камеру чтобы модель была видна целиком (ближе = больше)
 	local maxSize = math.max(modelSize.X, modelSize.Y, modelSize.Z)
-	local cameraDistance = maxSize * 1.5
+	local cameraDistance = maxSize * 0.6 -- Ещё ближе для крупного отображения
 	
 	if viewportCamera then
 		viewportCamera.CFrame = CFrame.lookAt(
-			Vector3.new(cameraDistance * 0.7, cameraDistance * 0.5, cameraDistance * 0.7),
+			Vector3.new(cameraDistance * 0.5, cameraDistance * 0.3, cameraDistance * 0.5),
 			Vector3.new(0, 0, 0)
 		)
 	end
@@ -642,7 +643,7 @@ local function setSlotItem(slot, itemData)
 end
 
 -- === ФУНКЦИЯ ПОИСКА СЛОТА ПО ИНДЕКСУ ===
-local function findInventorySlot(index)
+findInventorySlot = function(index)
 	if not surfaceGui then return nil end
 	
 	local mainFrame = surfaceGui:FindFirstChild("MainFrame")
@@ -658,7 +659,7 @@ local function findInventorySlot(index)
 end
 
 -- === ОБНОВЛЕНИЕ ИНВЕНТАРЯ ИЗ ДАННЫХ ===
-local function updateInventoryDisplay(slots)
+updateInventoryDisplay = function(slots)
 	if not inventoryOpen or not surfaceGui then return end
 	
 	-- Очищаем все слоты

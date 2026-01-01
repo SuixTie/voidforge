@@ -159,6 +159,25 @@ local function setupPickupItem(item)
 		return
 	end
 	
+	-- Сохраняем копию модели в ReplicatedStorage/Items для отображения в инвентаре
+	local itemsFolder = ReplicatedStorage:FindFirstChild("Items")
+	if not itemsFolder then
+		itemsFolder = Instance.new("Folder")
+		itemsFolder.Name = "Items"
+		itemsFolder.Parent = ReplicatedStorage
+	end
+	
+	if not itemsFolder:FindFirstChild(itemId) then
+		local modelCopy = item:Clone()
+		-- Удаляем ProximityPrompt из копии если есть
+		local promptCopy = modelCopy:FindFirstChild("PickupPrompt", true)
+		if promptCopy then
+			promptCopy:Destroy()
+		end
+		modelCopy.Parent = itemsFolder
+		print("ItemManager: Saved model copy for", itemId)
+	end
+	
 	-- Создаём ProximityPrompt
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "PickupPrompt"
@@ -212,6 +231,15 @@ end
 
 -- === СОБЫТИЯ ===
 pickupItemEvent.OnServerEvent:Connect(onPickupItem)
+
+-- Получение инвентаря по запросу
+getInventoryFunc.OnServerInvoke = function(requestingPlayer)
+	local inventory = playerInventories[requestingPlayer]
+	if inventory then
+		return inventory.slots
+	end
+	return {}
+end
 
 Players.PlayerAdded:Connect(function(player)
 	initPlayerInventory(player)
