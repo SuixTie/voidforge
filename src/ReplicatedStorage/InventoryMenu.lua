@@ -57,6 +57,7 @@ local inventoryPart = nil
 local surfaceGui = nil
 local updateConnection = nil
 local savedCameraType = nil
+local savedCameraCFrame = nil -- Сохраняем оригинальную позицию камеры
 local fixedCameraCFrame = nil
 local cameraTransitionAlpha = 0 -- Для плавного перехода камеры
 local savedShiftLockState = false -- Сохраняем состояние шифтлока
@@ -295,6 +296,13 @@ end
 -- === ОТКРЫТИЕ МЕНЮ ===
 local function openInventory()
 	if inventoryOpen then return end
+	
+	-- Проверяем, не в диалоге ли игрок
+	local inDialogue = player:FindFirstChild("InDialogue")
+	if inDialogue and inDialogue.Value then
+		return
+	end
+	
 	inventoryOpen = true
 	inventoryOpenValue.Value = true
 
@@ -315,8 +323,9 @@ local function openInventory()
 	local character = player.Character
 	local hrp = character and character:FindFirstChild("HumanoidRootPart")
 
-	-- Сохраняем тип камеры
+	-- Сохраняем тип камеры и её позицию
 	savedCameraType = camera.CameraType
+	savedCameraCFrame = camera.CFrame
 
 	-- Создаем Part сначала
 	inventoryPart, surfaceGui = createInventoryPart()
@@ -422,14 +431,6 @@ local function closeInventory()
 		shiftLockValue.Value = true
 	end
 
-	-- Восстанавливаем тип камеры
-	local camera = workspace.CurrentCamera
-	if savedCameraType then
-		camera.CameraType = savedCameraType
-		savedCameraType = nil
-	end
-	fixedCameraCFrame = nil
-
 	-- Разблокируем управление
 	unblockControls()
 
@@ -438,6 +439,41 @@ local function closeInventory()
 		updateConnection:Disconnect()
 		updateConnection = nil
 	end
+
+	-- Плавно возвращаем камеру к персонажу перед переключением типа
+	local camera = workspace.CurrentCamera
+	local character = player.Character
+	local hrp = character and character:FindFirstChild("HumanoidRootPart")
+	
+	if hrp then
+		-- Вычисляем позицию камеры за персонажем (стандартная позиция third-person)
+		local targetCameraPos = hrp.CFrame * CFrame.new(0, 2, 8) -- За спиной, выше
+		local targetCameraCFrame = CFrame.lookAt(targetCameraPos.Position, hrp.Position + Vector3.new(0, 1.5, 0))
+		
+		-- Плавная анимация возврата камеры
+		local cameraTween = TweenService:Create(camera, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			CFrame = targetCameraCFrame
+		})
+		cameraTween:Play()
+		
+		-- После анимации восстанавливаем тип камеры
+		cameraTween.Completed:Connect(function()
+			if savedCameraType then
+				camera.CameraType = savedCameraType
+				savedCameraType = nil
+			end
+			savedCameraCFrame = nil
+		end)
+	else
+		-- Если нет персонажа, просто восстанавливаем тип
+		if savedCameraType then
+			camera.CameraType = savedCameraType
+			savedCameraType = nil
+		end
+		savedCameraCFrame = nil
+	end
+	
+	fixedCameraCFrame = nil
 
 	-- Анимация исчезновения
 	if inventoryPart then
@@ -481,6 +517,12 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 
 	-- T для открытия/закрытия
 	if input.KeyCode == Enum.KeyCode.T then
+		-- Проверяем, не в диалоге ли игрок
+		local inDialogue = player:FindFirstChild("InDialogue")
+		if inDialogue and inDialogue.Value then
+			return
+		end
+		
 		-- Проверяем, не открыты ли другие меню
 		local settingsOpen = player:FindFirstChild("SettingsMenuOpen")
 		local shopOpen = player:FindFirstChild("ShopMenuOpen")

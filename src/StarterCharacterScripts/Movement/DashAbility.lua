@@ -81,6 +81,10 @@ end
 UIS.InputBegan:Connect(function(input, gameprocessed)
 	if gameprocessed or not canslide or input.KeyCode ~= keybind then return end
 	
+	-- Не даём делать дэш во время диалога
+	local inDialogue = player:FindFirstChild("InDialogue")
+	if inDialogue and inDialogue.Value then return end
+	
 	-- Не даём делать дэш во время виса на краю
 	if LedgeGrabConfig.IsHanging then return end
 	

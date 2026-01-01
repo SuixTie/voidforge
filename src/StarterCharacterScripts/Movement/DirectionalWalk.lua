@@ -189,8 +189,10 @@ local function updateWeights(localDir, isShiftLock, currentTracks)
 
 	-- 🔥 ИСПРАВЛЕННАЯ ЛОГИКА СКОРОСТИ 🔥
 	-- Если игрок НЕ приседает и НЕ ползает, управляем скоростью здесь
-	-- НЕ меняем скорость если игрок атакует или блокирует (боевая система управляет скоростью)
-	if not isCrouching and not isProne and not CombatConfig.IsAttacking and not CombatConfig.IsBlocking then
+	-- НЕ меняем скорость если игрок атакует, блокирует или в диалоге (боевая система/диалог управляет скоростью)
+	local inDialogue = player:FindFirstChild("InDialogue")
+	local isInDialogue = inDialogue and inDialogue.Value == true
+	if not isCrouching and not isProne and not CombatConfig.IsAttacking and not CombatConfig.IsBlocking and not isInDialogue then
 		local baseSpeed = isRunning and (RunConfig.Sprinting and RunConfig.SprintSpeed or RunConfig.RunSpeed) or NORMAL_SPEED
 		-- Применяем множитель скорости от стамины
 		baseSpeed = baseSpeed * staminaSpeedMultiplier
@@ -211,12 +213,14 @@ end
 RunService.RenderStepped:Connect(function()
 	local isCrouchingValue = player:FindFirstChild("IsCrouching")
 	local isSlidingValue = player:FindFirstChild("IsSliding")
+	local inDialogue = player:FindFirstChild("InDialogue")
 	local isProne = RunConfig.isProne == true
 	local isHanging = LedgeGrabConfig.IsHanging == true
 
-	-- Если приседаем, скользим, ползем, висим, в переходе или ОТДЫШКА - выключаем этот скрипт
+	-- Если приседаем, скользим, ползем, висим, в переходе, ОТДЫШКА или В ДИАЛОГЕ - выключаем этот скрипт
 	if (isCrouchingValue and isCrouchingValue.Value == true) or 
 		(isSlidingValue and isSlidingValue.Value == true) or 
+		(inDialogue and inDialogue.Value == true) or
 		isProne or 
 		isHanging or
 		isBreathing or

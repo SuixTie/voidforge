@@ -284,15 +284,20 @@ local function updateSpeed()
 	currentSpeedMultiplier = calculateSpeedMultiplier()
 	local jumpMultiplier = calculateJumpMultiplier()
 	
-	-- Обновляем высоту прыжка (только если не в отдышке и можем прыгать)
-	if not isBreathing and currentStamina > CONFIG.JumpCost then
+	-- Проверяем диалог - не меняем прыжок во время диалога
+	local inDialogue = player:FindFirstChild("InDialogue")
+	local isInDialogue = inDialogue and inDialogue.Value == true
+	
+	-- Обновляем высоту прыжка (только если не в отдышке, не в диалоге и можем прыгать)
+	if not isBreathing and not isInDialogue and currentStamina > CONFIG.JumpCost then
 		humanoid.JumpHeight = CONFIG.NormalJumpHeight * jumpMultiplier
 		humanoid.JumpPower = CONFIG.NormalJumpPower * jumpMultiplier
-	elseif not isBreathing then
+	elseif not isBreathing and not isInDialogue then
 		-- Недостаточно стамины для прыжка - отключаем прыжок
 		humanoid.JumpHeight = 0
 		humanoid.JumpPower = 0
 	end
+	-- Если в диалоге - не трогаем JumpHeight/JumpPower (NPCInteraction управляет)
 	
 	-- Оповещаем другие скрипты
 	speedUpdateEvent:Fire(currentSpeedMultiplier)

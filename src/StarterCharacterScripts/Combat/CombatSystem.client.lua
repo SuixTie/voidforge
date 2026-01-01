@@ -17,6 +17,7 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local Debris = game:GetService("Debris")
+local CollectionService = game:GetService("CollectionService")
 
 local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
@@ -685,6 +686,11 @@ local function createHitbox(range, damage, knockback, attackType)
 	for _, part in ipairs(parts) do
 		local targetChar = part.Parent
 		if targetChar and targetChar:FindFirstChild("Humanoid") and not hitTargets[targetChar] then
+			-- Пропускаем неуязвимых NPC
+			if CollectionService:HasTag(targetChar, "InvulnerableNPC") then
+				continue
+			end
+			
 			local targetHumanoid = targetChar:FindFirstChild("Humanoid")
 			local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
 
@@ -732,6 +738,10 @@ end
 
 -- === ПРОВЕРКА МОЖНО ЛИ АТАКОВАТЬ ===
 local function canPerformAttack()
+	-- Проверяем диалог
+	local inDialogue = player:FindFirstChild("InDialogue")
+	if inDialogue and inDialogue.Value then return false end
+	
 	-- Проверяем бег
 	if RunConfig and RunConfig.Running then return false end
 
@@ -886,6 +896,10 @@ end
 
 local function startBlock()
 	if isAttacking or isStaggered then return end
+	
+	-- Проверяем диалог
+	local inDialogue = player:FindFirstChild("InDialogue")
+	if inDialogue and inDialogue.Value then return end
 
 	isBlocking = true
 	CombatConfig.IsBlocking = true
@@ -926,6 +940,10 @@ local parryWindowStart = 0
 local function attemptParry()
 	if isAttacking or isStaggered or isParrying then return end
 	if not canAffordStamina(CombatConfig.Parry.StaminaCost) then return end
+	
+	-- Проверяем диалог
+	local inDialogue = player:FindFirstChild("InDialogue")
+	if inDialogue and inDialogue.Value then return end
 
 	isParrying = true
 	CombatConfig.IsParrying = true
@@ -1002,10 +1020,15 @@ local function findNearestTarget()
 		end
 	end
 
-	-- Также ищем NPC
+	-- Также ищем NPC (кроме неуязвимых)
 	for _, npc in ipairs(workspace:GetDescendants()) do
 		if npc:IsA("Model") and npc:FindFirstChild("Humanoid") and npc:FindFirstChild("HumanoidRootPart") then
 			if npc ~= character then
+				-- Пропускаем неуязвимых NPC (нельзя lock-on на них)
+				if CollectionService:HasTag(npc, "InvulnerableNPC") then
+					continue
+				end
+				
 				local npcHumanoid = npc:FindFirstChild("Humanoid")
 				local npcRoot = npc:FindFirstChild("HumanoidRootPart")
 

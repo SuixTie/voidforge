@@ -224,6 +224,9 @@ UIS.InputBegan:Connect(function(input, gameProcessed)
 	-- Блокируем если меню настроек открыто
 	local settingsOpen = player:FindFirstChild("SettingsMenuOpen")
 	if settingsOpen and settingsOpen.Value then return end
+	-- Блокируем бег во время диалога
+	local inDialogue = player:FindFirstChild("InDialogue")
+	if inDialogue and inDialogue.Value then return end
 	
 	if input.KeyCode == RunConfig.RunKey then
 		if humanoid.MoveDirection.Magnitude > 0 then

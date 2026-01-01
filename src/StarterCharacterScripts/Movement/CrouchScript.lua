@@ -199,6 +199,9 @@ UserInputService.InputBegan:Connect(function(input, gp)
 	-- Блокируем если меню настроек открыто
 	local settingsOpen = player:FindFirstChild("SettingsMenuOpen")
 	if settingsOpen and settingsOpen.Value then return end
+	-- Блокируем присед во время диалога
+	local inDialogue = player:FindFirstChild("InDialogue")
+	if inDialogue and inDialogue.Value then return end
 	-- Блокируем присед во время отдышки
 	if isBreathing then return end
 	if toggle and toggle.Value then isKeyDown = not isKeyDown else isKeyDown = true end

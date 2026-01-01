@@ -23,12 +23,12 @@ print("=== DummyManager: Script started ===")
 -- === НАСТРОЙКИ ===
 local CONFIG = {
 	RespawnTime = 5,           -- Время до респавна (секунды)
-	MaxHealth = 100,           -- Максимальное здоровье
+	MaxHealth = 1000,           -- Максимальное здоровье
 	DeathSoundId = "rbxassetid://148590801",
 	DeathSoundVolume = 0.05,
 	RagdollDuration = 4,       -- Время рагдолла перед исчезновением
 	DummyNames = {"TrainingDummy", "Dummy", "CombatDummy"}, -- Имена для поиска
-	IdleAnimationId = "rbxassetid://82153277493530", -- Idle анимация для R6
+	IdleAnimationId = "rbxassetid://118776133928639", -- Idle анимация для R6
 }
 
 -- === ХРАНИЛИЩЕ ДАММИ ===
@@ -38,22 +38,22 @@ local dummySpawnPoints = {} -- [dummy] = CFrame
 local function playIdleAnimation(dummy)
 	local humanoid = dummy:FindFirstChild("Humanoid")
 	if not humanoid then return end
-	
+
 	-- Ждём Animator или создаём его
 	local animator = humanoid:FindFirstChildOfClass("Animator")
 	if not animator then
 		animator = Instance.new("Animator")
 		animator.Parent = humanoid
 	end
-	
+
 	-- Создаём и загружаем анимацию
 	local idleAnim = Instance.new("Animation")
 	idleAnim.AnimationId = CONFIG.IdleAnimationId
-	
+
 	local success, idleTrack = pcall(function()
 		return animator:LoadAnimation(idleAnim)
 	end)
-	
+
 	if success and idleTrack then
 		idleTrack.Priority = Enum.AnimationPriority.Idle
 		idleTrack.Looped = true
@@ -111,21 +111,21 @@ end
 -- === ФУНКЦИЯ КЛОНИРОВАНИЯ ДАММИ ===
 local function cloneDummy(originalDummy, spawnCFrame)
 	local newDummy = originalDummy:Clone()
-	
+
 	-- Сбрасываем позицию
 	local rootPart = newDummy:FindFirstChild("HumanoidRootPart")
 	if rootPart then
 		rootPart.CFrame = spawnCFrame
 		rootPart.Anchored = false
 	end
-	
+
 	-- Сбрасываем здоровье
 	local humanoid = newDummy:FindFirstChild("Humanoid")
 	if humanoid then
 		humanoid.Health = CONFIG.MaxHealth
 		humanoid.MaxHealth = CONFIG.MaxHealth
 	end
-	
+
 	newDummy.Parent = workspace
 	return newDummy
 end
@@ -134,16 +134,16 @@ end
 local function setupDummy(dummy, originalTemplate)
 	local humanoid = dummy:FindFirstChild("Humanoid")
 	local rootPart = dummy:FindFirstChild("HumanoidRootPart")
-	
+
 	if not humanoid or not rootPart then
 		warn("DummyManager: Invalid dummy model -", dummy.Name)
 		return
 	end
-	
+
 	-- Сохраняем точку спавна
 	local spawnCFrame = rootPart.CFrame
 	dummySpawnPoints[dummy] = spawnCFrame
-	
+
 	-- Настраиваем Humanoid
 	humanoid.MaxHealth = CONFIG.MaxHealth
 	humanoid.Health = CONFIG.MaxHealth
@@ -151,40 +151,40 @@ local function setupDummy(dummy, originalTemplate)
 	humanoid.WalkSpeed = 0 -- Дамми не двигается
 	humanoid.JumpPower = 0
 	humanoid.JumpHeight = 0
-	
+
 	-- Отключаем автоматическое удаление
 	humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, true)
-	
+
 	-- Запускаем idle анимацию
 	local idleTrack = playIdleAnimation(dummy)
-	
+
 	-- Обработка смерти
 	humanoid.Died:Connect(function()
 		-- Останавливаем idle анимацию
 		if idleTrack then
 			idleTrack:Stop()
 		end
-		
+
 		-- Звук смерти
 		playDeathSound(dummy)
-		
+
 		-- Рагдолл
 		applyRagdoll(dummy)
-		
+
 		-- Удаляем через время
 		task.delay(CONFIG.RagdollDuration, function()
 			if dummy and dummy.Parent then
 				dummy:Destroy()
 			end
 		end)
-		
+
 		-- Респавн нового дамми
 		task.delay(CONFIG.RespawnTime, function()
 			local newDummy = cloneDummy(originalTemplate, spawnCFrame)
 			setupDummy(newDummy, originalTemplate)
 		end)
 	end)
-	
+
 	print("DummyManager: Setup complete for", dummy.Name)
 end
 
@@ -192,7 +192,7 @@ end
 local function findAndSetupDummies()
 	print("DummyManager: Searching for dummies...")
 	local foundCount = 0
-	
+
 	-- Ищем по именам
 	for _, name in ipairs(CONFIG.DummyNames) do
 		for _, dummy in ipairs(workspace:GetDescendants()) do
@@ -204,7 +204,7 @@ local function findAndSetupDummies()
 			end
 		end
 	end
-	
+
 	-- Ищем по тегу
 	for _, dummy in ipairs(CollectionService:GetTagged("Dummy")) do
 		if dummy:IsA("Model") and not dummySpawnPoints[dummy] then
@@ -214,7 +214,7 @@ local function findAndSetupDummies()
 			foundCount = foundCount + 1
 		end
 	end
-	
+
 	print("DummyManager: Total dummies found:", foundCount)
 end
 
@@ -223,7 +223,7 @@ local function createDummy(position, name)
 	-- Создаём R6 модель
 	local dummy = Instance.new("Model")
 	dummy.Name = name or "TrainingDummy"
-	
+
 	-- Torso
 	local torso = Instance.new("Part")
 	torso.Name = "Torso"
@@ -231,7 +231,7 @@ local function createDummy(position, name)
 	torso.CFrame = CFrame.new(position)
 	torso.Anchored = false
 	torso.Parent = dummy
-	
+
 	-- Head
 	local head = Instance.new("Part")
 	head.Name = "Head"
@@ -240,7 +240,7 @@ local function createDummy(position, name)
 	head.CFrame = torso.CFrame * CFrame.new(0, 1.5, 0)
 	head.Anchored = false
 	head.Parent = dummy
-	
+
 	local headJoint = Instance.new("Motor6D")
 	headJoint.Name = "Neck"
 	headJoint.Part0 = torso
@@ -248,7 +248,7 @@ local function createDummy(position, name)
 	headJoint.C0 = CFrame.new(0, 1, 0)
 	headJoint.C1 = CFrame.new(0, -0.5, 0)
 	headJoint.Parent = torso
-	
+
 	-- HumanoidRootPart
 	local rootPart = Instance.new("Part")
 	rootPart.Name = "HumanoidRootPart"
@@ -257,13 +257,13 @@ local function createDummy(position, name)
 	rootPart.Transparency = 1
 	rootPart.Anchored = false
 	rootPart.Parent = dummy
-	
+
 	local rootJoint = Instance.new("Motor6D")
 	rootJoint.Name = "RootJoint"
 	rootJoint.Part0 = rootPart
 	rootJoint.Part1 = torso
 	rootJoint.Parent = rootPart
-	
+
 	-- Left Arm
 	local leftArm = Instance.new("Part")
 	leftArm.Name = "Left Arm"
@@ -271,7 +271,7 @@ local function createDummy(position, name)
 	leftArm.CFrame = torso.CFrame * CFrame.new(-1.5, 0, 0)
 	leftArm.Anchored = false
 	leftArm.Parent = dummy
-	
+
 	local leftShoulder = Instance.new("Motor6D")
 	leftShoulder.Name = "Left Shoulder"
 	leftShoulder.Part0 = torso
@@ -279,7 +279,7 @@ local function createDummy(position, name)
 	leftShoulder.C0 = CFrame.new(-1, 0.5, 0)
 	leftShoulder.C1 = CFrame.new(0.5, 0.5, 0)
 	leftShoulder.Parent = torso
-	
+
 	-- Right Arm
 	local rightArm = Instance.new("Part")
 	rightArm.Name = "Right Arm"
@@ -287,7 +287,7 @@ local function createDummy(position, name)
 	rightArm.CFrame = torso.CFrame * CFrame.new(1.5, 0, 0)
 	rightArm.Anchored = false
 	rightArm.Parent = dummy
-	
+
 	local rightShoulder = Instance.new("Motor6D")
 	rightShoulder.Name = "Right Shoulder"
 	rightShoulder.Part0 = torso
@@ -295,7 +295,7 @@ local function createDummy(position, name)
 	rightShoulder.C0 = CFrame.new(1, 0.5, 0)
 	rightShoulder.C1 = CFrame.new(-0.5, 0.5, 0)
 	rightShoulder.Parent = torso
-	
+
 	-- Left Leg
 	local leftLeg = Instance.new("Part")
 	leftLeg.Name = "Left Leg"
@@ -303,7 +303,7 @@ local function createDummy(position, name)
 	leftLeg.CFrame = torso.CFrame * CFrame.new(-0.5, -2, 0)
 	leftLeg.Anchored = false
 	leftLeg.Parent = dummy
-	
+
 	local leftHip = Instance.new("Motor6D")
 	leftHip.Name = "Left Hip"
 	leftHip.Part0 = torso
@@ -311,7 +311,7 @@ local function createDummy(position, name)
 	leftHip.C0 = CFrame.new(-0.5, -1, 0)
 	leftHip.C1 = CFrame.new(0, 1, 0)
 	leftHip.Parent = torso
-	
+
 	-- Right Leg
 	local rightLeg = Instance.new("Part")
 	rightLeg.Name = "Right Leg"
@@ -319,7 +319,7 @@ local function createDummy(position, name)
 	rightLeg.CFrame = torso.CFrame * CFrame.new(0.5, -2, 0)
 	rightLeg.Anchored = false
 	rightLeg.Parent = dummy
-	
+
 	local rightHip = Instance.new("Motor6D")
 	rightHip.Name = "Right Hip"
 	rightHip.Part0 = torso
@@ -327,19 +327,19 @@ local function createDummy(position, name)
 	rightHip.C0 = CFrame.new(0.5, -1, 0)
 	rightHip.C1 = CFrame.new(0, 1, 0)
 	rightHip.Parent = torso
-	
+
 	-- Humanoid
 	local humanoid = Instance.new("Humanoid")
 	humanoid.RigType = Enum.HumanoidRigType.R6
 	humanoid.Parent = dummy
-	
+
 	-- Face
 	local face = Instance.new("Decal")
 	face.Name = "face"
 	face.Texture = "rbxasset://textures/face.png"
 	face.Face = Enum.NormalId.Front
 	face.Parent = head
-	
+
 	-- Цвет (серый для дамми)
 	for _, part in ipairs(dummy:GetDescendants()) do
 		if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
@@ -347,10 +347,10 @@ local function createDummy(position, name)
 			part.Material = Enum.Material.SmoothPlastic
 		end
 	end
-	
+
 	dummy.PrimaryPart = rootPart
 	dummy.Parent = workspace
-	
+
 	return dummy
 end
 

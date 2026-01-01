@@ -116,8 +116,12 @@ RunService.RenderStepped:Connect(function()
 	local isCrouchingValue = player:FindFirstChild("IsCrouching")
 	local isSlidingValue = player:FindFirstChild("IsSliding")
 	local wasSlidingValue = player:FindFirstChild("WasSliding")
+	local inDialogue = player:FindFirstChild("InDialogue")
 
 	if isSlidingValue and isSlidingValue.Value then return end
+	
+	-- Не меняем состояние во время диалога
+	if inDialogue and inDialogue.Value then return end
 
 	local ENTER_PRONE_DIST = 0.1 
 	local EXIT_PRONE_DIST = 2 

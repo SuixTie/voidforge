@@ -76,11 +76,12 @@ RunService.RenderStepped:Connect(function()
 	local rootPart = character and character:FindFirstChild("HumanoidRootPart")
 	if not humanoid or not rootPart then return end
 	
-	-- Пропускаем обработку если меню открыто
+	-- Пропускаем обработку если меню открыто или в диалоге
 	local settingsOpen = player:FindFirstChild("SettingsMenuOpen")
 	local inventoryOpen = player:FindFirstChild("InventoryMenuOpen")
-	if (settingsOpen and settingsOpen.Value) or (inventoryOpen and inventoryOpen.Value) then
-		-- Скрываем прицел когда меню открыто
+	local inDialogue = player:FindFirstChild("InDialogue")
+	if (settingsOpen and settingsOpen.Value) or (inventoryOpen and inventoryOpen.Value) or (inDialogue and inDialogue.Value) then
+		-- Скрываем прицел когда меню/диалог открыт
 		crosshair.Visible = false
 		return
 	end
