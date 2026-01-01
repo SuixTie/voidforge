@@ -26,8 +26,9 @@ local rootPart = character:WaitForChild("HumanoidRootPart")
 local animator = humanoid:WaitForChild("Animator")
 
 local CombatConfig = require(game.ReplicatedStorage.CombatConfig)
+local CombatVFX = require(script.Parent.Parent.VFX.CombatVFX)
 
--- RemoteEvent для серверного урона
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local damageEvent = ReplicatedStorage:WaitForChild("DamageEvent", 10)
 
@@ -698,29 +699,31 @@ local function createHitbox(range, damage, knockback, attackType)
 				hitTargets[targetChar] = true
 				hitEnemy = true
 
-				-- Направление отталкивания
 				local knockbackDir = Vector3.new(0, 0, 0)
 				if targetRoot then
 					knockbackDir = (targetRoot.Position - rootPart.Position).Unit
 				end
 
-				-- Отправляем урон на сервер (для NPC/дамми)
 				if damageEvent then
 					damageEvent:FireServer(targetChar, damage, knockbackDir, knockback or 10)
 				end
 
-				-- Звук попадания по врагу
 				playHitSound(attackType, nil)
 
-				-- Тряска камеры при попадании
 				shakeCamera(0.3, 0.15)
 
-				-- VFX попадания
 				createHitEffect(part.Position, attackType)
 				
-				-- Всплывающий урон
 				local isCritical = attackType == "Heavy" and damage >= 30
 				createDamageLabel(part.Position, damage, isCritical)
+
+				if attackType == "Heavy" then
+					CombatVFX:CreateCriticalHitEffect(part.Position)
+				end
+
+				if comboCount == 4 then
+					CombatVFX:CreateComboFinisherEffect(part.Position)
+				end
 
 				-- Оповещаем о попадании
 				combatEvent:Fire("hit", targetChar, damage)
@@ -894,6 +897,9 @@ if not blockingValue then
 	blockingValue.Parent = character
 end
 
+local blockShield = nil
+local blockShieldConnection = nil
+
 local function startBlock()
 	if isAttacking or isStaggered then return end
 	
@@ -903,13 +909,13 @@ local function startBlock()
 
 	isBlocking = true
 	CombatConfig.IsBlocking = true
-	blockingValue.Value = true -- Для сервера
+	blockingValue.Value = true
 
-	-- Замедляем движение при блоке
 	humanoid.WalkSpeed = BLOCK_WALK_SPEED
 
-	-- Анимация блока
 	blockTrack:Play(0.15)
+
+	blockShield, blockShieldConnection = CombatVFX:CreateBlockShield()
 
 	blockSound:Play()
 	combatEvent:Fire("block", true)
@@ -920,12 +926,19 @@ local function stopBlock()
 
 	isBlocking = false
 	CombatConfig.IsBlocking = false
-	blockingValue.Value = false -- Для сервера
+	blockingValue.Value = false
 
-	-- Останавливаем анимацию блока
 	blockTrack:Stop(0.2)
 
-	-- Восстанавливаем скорость (если не атакуем)
+	if blockShield then
+		blockShield:Destroy()
+		blockShield = nil
+	end
+	if blockShieldConnection then
+		blockShieldConnection:Disconnect()
+		blockShieldConnection = nil
+	end
+
 	if not isAttacking then
 		humanoid.WalkSpeed = NORMAL_WALK_SPEED
 	end
@@ -984,13 +997,13 @@ local function checkParry(attackTime)
 	local timeSinceParry = tick() - parryWindowStart
 
 	if timeSinceParry <= CombatConfig.Parry.PerfectWindow then
-		-- Идеальное парирование!
 		shakeCamera(0.5, 0.3)
+		CombatVFX:CreateParryEffect(rootPart.Position + rootPart.CFrame.LookVector * 2, true)
 		combatEvent:Fire("perfectParry")
 		return "perfect"
 	elseif timeSinceParry <= CombatConfig.Parry.Window then
-		-- Обычное парирование
 		shakeCamera(0.3, 0.2)
+		CombatVFX:CreateParryEffect(rootPart.Position + rootPart.CFrame.LookVector * 2, false)
 		combatEvent:Fire("normalParry")
 		return "normal"
 	end
@@ -1158,13 +1171,10 @@ UserInputService.InputEnded:Connect(function(input, gameProcessed)
 	end
 end)
 
--- === ПОЛУЧЕНИЕ УРОНА ===
 humanoid.HealthChanged:Connect(function(newHealth)
-	-- Тряска камеры при получении урона
 	shakeCamera(0.4, 0.25)
 end)
 
--- === СМЕРТЬ ===
 humanoid.Died:Connect(function()
 	isAttacking = false
 	isBlocking = false
@@ -1176,6 +1186,15 @@ humanoid.Died:Connect(function()
 		lockOnIndicator:Destroy()
 	end
 
+	if blockShield then
+		blockShield:Destroy()
+		blockShield = nil
+	end
+	if blockShieldConnection then
+		blockShieldConnection:Disconnect()
+		blockShieldConnection = nil
+	end
+
 	if currentAttackTrack then
 		currentAttackTrack:Stop()
 	end
@@ -1184,7 +1203,6 @@ humanoid.Died:Connect(function()
 	parryTrack:Stop()
 end)
 
--- === ЭКСПОРТ ===
 local CombatSystem = {}
 
 CombatSystem.IsAttacking = function() return isAttacking end
@@ -1195,7 +1213,6 @@ CombatSystem.GetLockedTarget = function() return lockedTarget end
 CombatSystem.CheckParry = checkParry
 CombatSystem.GetCombatEvent = function() return combatEvent end
 
--- Для внешнего вызова атаки
 CombatSystem.Attack = function(attackType)
 	performAttack(attackType or "Light")
 end
@@ -1210,8 +1227,5 @@ end
 
 CombatSystem.Parry = attemptParry
 CombatSystem.ToggleLockOn = toggleLockOn
-
-print("--- CombatSystem loaded ---")
-print("Controls: LMB = Light Attack, RMB = Heavy Attack, R = Parry, F = Block, G = Lock-On")
 
 return CombatSystem
