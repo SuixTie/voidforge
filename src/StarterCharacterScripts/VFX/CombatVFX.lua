@@ -7,9 +7,13 @@ local Debris = game:GetService("Debris")
 local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
-local character = script.Parent.Parent
+local character = player.Character or player.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
 local rootPart = character:WaitForChild("HumanoidRootPart")
+
+-- Предзагрузка ассетов
+local ContentProvider = game:GetService("ContentProvider")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local VFX_ASSETS = {
 	ParryShockwave = "rbxassetid://88220699827337",
@@ -17,10 +21,28 @@ local VFX_ASSETS = {
 	Vignette = "rbxassetid://2778230947",
 }
 
+-- Предзагружаем ассеты при старте (используем Decal внутри модуля если есть)
+task.spawn(function()
+	local combatVFXModule = ReplicatedStorage:FindFirstChild("CombatVFX")
+	if combatVFXModule then
+		local decal = combatVFXModule:FindFirstChild("Decal")
+		if decal then
+			ContentProvider:PreloadAsync({decal})
+		end
+	end
+	
+	-- Также предзагружаем остальные ассеты
+	local assetsToPreload = {}
+	for _, assetId in pairs(VFX_ASSETS) do
+		table.insert(assetsToPreload, assetId)
+	end
+	ContentProvider:PreloadAsync(assetsToPreload)
+end)
+
 local VFX_COLORS = {
-	Parry = Color3.fromRGB(0, 255, 255),
-	ParryPerfect = Color3.fromRGB(255, 255, 255),
-	Block = Color3.fromRGB(80, 150, 255),
+	Parry = Color3.fromRGB(220, 220, 220),        -- Светло-серый вместо синего
+	ParryPerfect = Color3.fromRGB(255, 255, 255), -- Белый
+	Block = Color3.fromRGB(180, 180, 180),        -- Серый вместо синего
 	Critical = Color3.fromRGB(255, 100, 50),
 	ComboFinisher = Color3.fromRGB(255, 200, 100),
 	LowHealth = Color3.fromRGB(255, 50, 50),
@@ -43,7 +65,7 @@ function CombatVFX:CreateParryEffect(position, isPerfect)
 	shockwave.Parent = workspace
 	
 	local billboard = Instance.new("BillboardGui")
-	billboard.Size = UDim2.new(0, 100, 0, 100)
+	billboard.Size = UDim2.new(0, 60, 0, 60)
 	billboard.Adornee = shockwave
 	billboard.AlwaysOnTop = false
 	billboard.Parent = shockwave
@@ -53,31 +75,33 @@ function CombatVFX:CreateParryEffect(position, isPerfect)
 	image.BackgroundTransparency = 1
 	image.Image = VFX_ASSETS.ParryShockwave
 	image.ImageColor3 = color
-	image.ImageTransparency = 0.3
+	image.ImageTransparency = 0.5  -- Более прозрачный
 	image.Parent = billboard
 	
-	TweenService:Create(billboard, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-		Size = UDim2.new(0, isPerfect and 400 or 250, 0, isPerfect and 400 or 250)
+	TweenService:Create(billboard, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Size = UDim2.new(0, isPerfect and 250 or 150, 0, isPerfect and 250 or 150)  -- Меньше размер
 	}):Play()
 	
-	TweenService:Create(image, TweenInfo.new(0.4), {
+	TweenService:Create(image, TweenInfo.new(0.3), {
 		ImageTransparency = 1
 	}):Play()
 	
-	for i = 1, (isPerfect and 15 or 8) do
+	-- Меньше искр и они менее яркие
+	for i = 1, (isPerfect and 6 or 3) do
 		local spark = Instance.new("Part")
 		spark.Name = "ParrySpark"
-		spark.Size = Vector3.new(0.1, 0.1, math.random(5, 12) / 10)
+		spark.Size = Vector3.new(0.05, 0.05, math.random(3, 6) / 10)
 		spark.Position = position
 		spark.Anchored = true
 		spark.CanCollide = false
-		spark.Material = Enum.Material.Neon
+		spark.Material = Enum.Material.SmoothPlastic  -- Менее яркий материал
 		spark.Color = color
+		spark.Transparency = 0.3
 		spark.Parent = workspace
 		
 		local angle = math.rad(math.random(0, 360))
-		local elevation = math.rad(math.random(-30, 30))
-		local speed = math.random(15, 30)
+		local elevation = math.rad(math.random(-20, 20))
+		local speed = math.random(8, 15)  -- Медленнее
 		local direction = Vector3.new(
 			math.cos(angle) * math.cos(elevation),
 			math.sin(elevation),
@@ -86,34 +110,89 @@ function CombatVFX:CreateParryEffect(position, isPerfect)
 		
 		task.spawn(function()
 			local startTime = tick()
-			while tick() - startTime < 0.3 do
+			while tick() - startTime < 0.2 do
 				spark.Position = spark.Position + direction * 0.016
-				spark.Transparency = (tick() - startTime) / 0.3
-				direction = direction * 0.95
+				spark.Transparency = 0.3 + (tick() - startTime) / 0.2 * 0.7
+				direction = direction * 0.92
 				task.wait()
 			end
 			spark:Destroy()
 		end)
 	end
 	
+	-- Слабее свет
 	local flash = Instance.new("PointLight")
 	flash.Color = color
-	flash.Brightness = isPerfect and 5 or 3
-	flash.Range = isPerfect and 15 or 10
+	flash.Brightness = isPerfect and 2 or 1
+	flash.Range = isPerfect and 8 or 5
 	flash.Parent = shockwave
 	
 	task.spawn(function()
-		for i = 1, 10 do
+		for i = 1, 8 do
 			task.wait(0.02)
-			flash.Brightness = flash.Brightness * 0.7
+			flash.Brightness = flash.Brightness * 0.6
 		end
 	end)
 	
 	if isPerfect then
-		self:ApplyTimeSlow(0.2, 0.3)
+		self:ApplyTimeSlow(0.15, 0.4)
 	end
 	
-	Debris:AddItem(shockwave, 0.5)
+	Debris:AddItem(shockwave, 0.4)
+end
+
+function CombatVFX:CreateSwingShockwave(armName, isHeavy)
+	local arm = character:FindFirstChild(armName)
+	if not arm then return end
+	
+	-- Нейтральные цвета вместо синего
+	local color = isHeavy and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(230, 230, 230)
+	local startSize = isHeavy and 60 or 40
+	local endSize = isHeavy and 250 or 160
+	
+	-- Создаём BillboardGui прямо на руке (следует за ней)
+	local billboard = Instance.new("BillboardGui")
+	billboard.Name = "SwingShockwave"
+	billboard.Size = UDim2.new(0, startSize, 0, startSize)
+	billboard.Adornee = arm
+	billboard.AlwaysOnTop = false
+	billboard.StudsOffset = Vector3.new(0, 0, 0)
+	billboard.Parent = arm
+	
+	local image = Instance.new("ImageLabel")
+	image.Size = UDim2.new(1, 0, 1, 0)
+	image.BackgroundTransparency = 1
+	image.Image = VFX_ASSETS.ParryShockwave
+	image.ImageColor3 = color
+	image.ImageTransparency = 0.5  -- Более прозрачный
+	image.Parent = billboard
+	
+	-- Анимация расширения
+	TweenService:Create(billboard, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Size = UDim2.new(0, endSize, 0, endSize)
+	}):Play()
+	
+	-- Анимация исчезновения
+	TweenService:Create(image, TweenInfo.new(0.3), {
+		ImageTransparency = 1
+	}):Play()
+	
+	-- Слабое свечение на руку
+	local light = Instance.new("PointLight")
+	light.Color = color
+	light.Brightness = isHeavy and 1.5 or 1
+	light.Range = isHeavy and 5 or 3
+	light.Parent = arm
+	
+	task.spawn(function()
+		for i = 1, 8 do
+			task.wait(0.02)
+			light.Brightness = light.Brightness * 0.6
+		end
+		light:Destroy()
+	end)
+	
+	Debris:AddItem(billboard, 0.35)
 end
 
 

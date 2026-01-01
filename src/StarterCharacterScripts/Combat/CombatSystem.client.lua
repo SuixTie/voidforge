@@ -26,9 +26,15 @@ local rootPart = character:WaitForChild("HumanoidRootPart")
 local animator = humanoid:WaitForChild("Animator")
 
 local CombatConfig = require(game.ReplicatedStorage.CombatConfig)
-local CombatVFX = require(script.Parent.Parent.VFX.CombatVFX)
 
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CombatVFX = nil
+local vfxSuccess, vfxResult = pcall(function()
+	return require(game.ReplicatedStorage:WaitForChild("CombatVFX"))
+end)
+if vfxSuccess then
+	CombatVFX = vfxResult
+end
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local damageEvent = ReplicatedStorage:WaitForChild("DamageEvent", 10)
 
@@ -385,10 +391,13 @@ local function createSwingEffect(attackType, attackIndex)
 	local arm = character:FindFirstChild(armName)
 	if not arm then return end
 
-	-- Настройки в зависимости от типа атаки
+	if CombatVFX then
+		CombatVFX:CreateSwingShockwave(armName, attackType == "Heavy")
+	end
+
 	local swingColor = attackType == "Heavy" 
-		and Color3.fromRGB(255, 255, 255)  -- Белый для тяжёлых
-		or Color3.fromRGB(200, 200, 255)   -- Светло-голубой для лёгких
+		and Color3.fromRGB(255, 255, 255)
+		or Color3.fromRGB(200, 200, 255)
 
 	local trailEndColor = attackType == "Heavy"
 		and Color3.fromRGB(200, 200, 200)  -- Светло-серый для тяжёлых
@@ -714,14 +723,18 @@ local function createHitbox(range, damage, knockback, attackType)
 
 				createHitEffect(part.Position, attackType)
 				
+				if CombatVFX then
+					CombatVFX:CreateParryEffect(part.Position, attackType == "Heavy")
+				end
+				
 				local isCritical = attackType == "Heavy" and damage >= 30
 				createDamageLabel(part.Position, damage, isCritical)
 
-				if attackType == "Heavy" then
+				if attackType == "Heavy" and CombatVFX then
 					CombatVFX:CreateCriticalHitEffect(part.Position)
 				end
 
-				if comboCount == 4 then
+				if comboCount == 4 and CombatVFX then
 					CombatVFX:CreateComboFinisherEffect(part.Position)
 				end
 
@@ -915,7 +928,9 @@ local function startBlock()
 
 	blockTrack:Play(0.15)
 
-	blockShield, blockShieldConnection = CombatVFX:CreateBlockShield()
+	if CombatVFX then
+		blockShield, blockShieldConnection = CombatVFX:CreateBlockShield()
+	end
 
 	blockSound:Play()
 	combatEvent:Fire("block", true)
@@ -998,12 +1013,16 @@ local function checkParry(attackTime)
 
 	if timeSinceParry <= CombatConfig.Parry.PerfectWindow then
 		shakeCamera(0.5, 0.3)
-		CombatVFX:CreateParryEffect(rootPart.Position + rootPart.CFrame.LookVector * 2, true)
+		if CombatVFX then
+			CombatVFX:CreateParryEffect(rootPart.Position + rootPart.CFrame.LookVector * 2, true)
+		end
 		combatEvent:Fire("perfectParry")
 		return "perfect"
 	elseif timeSinceParry <= CombatConfig.Parry.Window then
 		shakeCamera(0.3, 0.2)
-		CombatVFX:CreateParryEffect(rootPart.Position + rootPart.CFrame.LookVector * 2, false)
+		if CombatVFX then
+			CombatVFX:CreateParryEffect(rootPart.Position + rootPart.CFrame.LookVector * 2, false)
+		end
 		combatEvent:Fire("normalParry")
 		return "normal"
 	end
