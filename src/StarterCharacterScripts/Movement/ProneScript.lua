@@ -97,7 +97,25 @@ local function getCeilingData()
 	if not head then return nil, 6 end 
 
 	local raycastParams = RaycastParams.new()
-	raycastParams.FilterDescendantsInstances = {char}
+	
+	-- Собираем все модели персонажей для исключения
+	local excludeList = {char}
+	
+	-- Исключаем всех игроков
+	for _, plr in ipairs(Players:GetPlayers()) do
+		if plr.Character then
+			table.insert(excludeList, plr.Character)
+		end
+	end
+	
+	-- Исключаем NPC (модели с Humanoid)
+	for _, obj in ipairs(workspace:GetChildren()) do
+		if obj:IsA("Model") and obj:FindFirstChild("Humanoid") and obj ~= char then
+			table.insert(excludeList, obj)
+		end
+	end
+	
+	raycastParams.FilterDescendantsInstances = excludeList
 	raycastParams.FilterType = Enum.RaycastFilterType.Exclude
 	raycastParams.IgnoreWater = true
 

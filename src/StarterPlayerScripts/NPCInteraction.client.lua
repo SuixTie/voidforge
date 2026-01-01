@@ -16,9 +16,23 @@ local CollectionService = game:GetService("CollectionService")
 local ProximityPromptService = game:GetService("ProximityPromptService")
 local StarterPlayer = game:GetService("StarterPlayer")
 local SoundService = game:GetService("SoundService")
+local Lighting = game:GetService("Lighting")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
+
+-- === DEPTH OF FIELD ЭФФЕКТ (блюр персонажа) ===
+local dialogueDoF = Lighting:FindFirstChild("DialogueDepthOfField")
+if not dialogueDoF then
+	dialogueDoF = Instance.new("DepthOfFieldEffect")
+	dialogueDoF.Name = "DialogueDepthOfField"
+	dialogueDoF.FarIntensity = 0
+	dialogueDoF.FocusDistance = 20
+	dialogueDoF.InFocusRadius = 50
+	dialogueDoF.NearIntensity = 0
+	dialogueDoF.Enabled = false
+	dialogueDoF.Parent = Lighting
+end
 
 -- === ЗВУКИ ДИАЛОГА ===
 local dialogueSound = Instance.new("Sound")
@@ -202,6 +216,10 @@ local dialogueCameraConnection = nil
 -- Настройки typewriter эффекта
 local TYPEWRITER_SPEED = 0.03 -- Секунд на символ
 
+-- === НАСТРОЙКИ ДИСТАНЦИИ ===
+local MIN_DIALOGUE_DISTANCE = 5 -- Минимальное расстояние до NPC
+local MAX_DIALOGUE_DISTANCE = 10 -- Максимальное расстояние до NPC
+
 -- === GUI ===
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "NPCInteractionGui"
@@ -209,62 +227,114 @@ screenGui.ResetOnSpawn = false
 screenGui.IgnoreGuiInset = true
 screenGui.Parent = playerGui
 
--- === ЦВЕТА ===
-local PANEL_COLOR = Color3.fromRGB(30, 30, 35)
-local PANEL_DARK = Color3.fromRGB(20, 20, 25)
-local BORDER_COLOR = Color3.fromRGB(60, 60, 65)
-local TEXT_COLOR = Color3.fromRGB(255, 255, 255)
-local HINT_COLOR = Color3.fromRGB(150, 150, 150)
+-- === ЦВЕТА CYBERPUNK ===
+local COLORS = {
+	Panel = Color3.fromRGB(15, 5, 30),
+	PanelDark = Color3.fromRGB(10, 3, 20),
+	Border = Color3.fromRGB(0, 255, 255),
+	BorderDim = Color3.fromRGB(0, 150, 150),
+	BorderDark = Color3.fromRGB(0, 80, 80),
+	Text = Color3.fromRGB(220, 240, 255),
+	TextDim = Color3.fromRGB(100, 140, 160),
+	Highlight = Color3.fromRGB(0, 255, 255),
+	Magenta = Color3.fromRGB(255, 0, 128),
+	Inactive = Color3.fromRGB(60, 100, 120),
+}
 
--- === ДИАЛОГОВОЕ ОКНО (новый стиль) ===
+-- === ДИАЛОГОВОЕ ОКНО (Cyberpunk стиль) ===
 local dialogueFrame = Instance.new("Frame")
 dialogueFrame.Name = "DialogueFrame"
 dialogueFrame.Size = UDim2.new(0, 700, 0, 200)
 dialogueFrame.Position = UDim2.new(0.5, -350, 1, -220)
-dialogueFrame.BackgroundColor3 = PANEL_COLOR
-dialogueFrame.BackgroundTransparency = 0.1
+dialogueFrame.BackgroundColor3 = COLORS.Panel
+dialogueFrame.BackgroundTransparency = 0.05
 dialogueFrame.BorderSizePixel = 0
 dialogueFrame.Visible = false
 dialogueFrame.Parent = screenGui
 
-local dialogueCorner = Instance.new("UICorner")
-dialogueCorner.CornerRadius = UDim.new(0, 8)
-dialogueCorner.Parent = dialogueFrame
-
+-- Внешняя рамка (циановая)
 local dialogueStroke = Instance.new("UIStroke")
-dialogueStroke.Color = BORDER_COLOR
+dialogueStroke.Color = COLORS.Border
 dialogueStroke.Thickness = 2
 dialogueStroke.Parent = dialogueFrame
 
--- === ИМЯ NPC (сверху над всем) ===
+-- Угловые декорации главной панели
+local cornerTL = Instance.new("ImageLabel")
+cornerTL.Size = UDim2.new(0, 14, 0, 14)
+cornerTL.Position = UDim2.new(0, 0, 0, 0)
+cornerTL.BackgroundTransparency = 1
+cornerTL.Image = "rbxassetid://132921287217893"
+cornerTL.ImageColor3 = COLORS.Border
+cornerTL.Rotation = 0
+cornerTL.Parent = dialogueFrame
+
+local cornerTR = Instance.new("ImageLabel")
+cornerTR.Size = UDim2.new(0, 14, 0, 14)
+cornerTR.Position = UDim2.new(1, -14, 0, 0)
+cornerTR.BackgroundTransparency = 1
+cornerTR.Image = "rbxassetid://132921287217893"
+cornerTR.ImageColor3 = COLORS.Border
+cornerTR.Rotation = 90
+cornerTR.Parent = dialogueFrame
+
+local cornerBL = Instance.new("ImageLabel")
+cornerBL.Size = UDim2.new(0, 14, 0, 14)
+cornerBL.Position = UDim2.new(0, 0, 1, -14)
+cornerBL.BackgroundTransparency = 1
+cornerBL.Image = "rbxassetid://132921287217893"
+cornerBL.ImageColor3 = COLORS.Border
+cornerBL.Rotation = -90
+cornerBL.Parent = dialogueFrame
+
+local cornerBR = Instance.new("ImageLabel")
+cornerBR.Size = UDim2.new(0, 14, 0, 14)
+cornerBR.Position = UDim2.new(1, -14, 1, -14)
+cornerBR.BackgroundTransparency = 1
+cornerBR.Image = "rbxassetid://132921287217893"
+cornerBR.ImageColor3 = COLORS.Border
+cornerBR.Rotation = 180
+cornerBR.Parent = dialogueFrame
+
+-- === ИМЯ NPC (сверху, циановый цвет) ===
 local npcNameLabel = Instance.new("TextLabel")
 npcNameLabel.Name = "NPCName"
 npcNameLabel.Size = UDim2.new(1, -20, 0, 30)
 npcNameLabel.Position = UDim2.new(0, 10, 0, -35)
 npcNameLabel.BackgroundTransparency = 1
 npcNameLabel.Text = "NPC"
-npcNameLabel.TextColor3 = TEXT_COLOR
+npcNameLabel.TextColor3 = COLORS.Border
 npcNameLabel.TextSize = 22
 npcNameLabel.Font = Enum.Font.GothamBold
 npcNameLabel.TextXAlignment = Enum.TextXAlignment.Left
 npcNameLabel.Parent = dialogueFrame
 
--- === ПОРТРЕТ NPC (слева) ===
+-- === ПОРТРЕТ NPC (слева, двойная рамка) ===
+-- Внешний фрейм портрета
+local portraitOuter = Instance.new("Frame")
+portraitOuter.Name = "PortraitOuter"
+portraitOuter.Size = UDim2.new(0, 180, 0, 180)
+portraitOuter.Position = UDim2.new(0, 10, 0, 10)
+portraitOuter.BackgroundColor3 = COLORS.PanelDark
+portraitOuter.BorderSizePixel = 0
+portraitOuter.Parent = dialogueFrame
+
+local portraitOuterStroke = Instance.new("UIStroke")
+portraitOuterStroke.Color = COLORS.BorderDim
+portraitOuterStroke.Thickness = 1
+portraitOuterStroke.Parent = portraitOuter
+
+-- Внутренний фрейм портрета
 local portraitFrame = Instance.new("Frame")
 portraitFrame.Name = "PortraitFrame"
-portraitFrame.Size = UDim2.new(0, 180, 0, 180)
-portraitFrame.Position = UDim2.new(0, 10, 0, 10)
-portraitFrame.BackgroundColor3 = PANEL_DARK
+portraitFrame.Size = UDim2.new(1, -6, 1, -6)
+portraitFrame.Position = UDim2.new(0, 3, 0, 3)
+portraitFrame.BackgroundColor3 = COLORS.Panel
 portraitFrame.BorderSizePixel = 0
-portraitFrame.Parent = dialogueFrame
-
-local portraitCorner = Instance.new("UICorner")
-portraitCorner.CornerRadius = UDim.new(0, 6)
-portraitCorner.Parent = portraitFrame
+portraitFrame.Parent = portraitOuter
 
 local portraitStroke = Instance.new("UIStroke")
-portraitStroke.Color = BORDER_COLOR
-portraitStroke.Thickness = 2
+portraitStroke.Color = COLORS.BorderDark
+portraitStroke.Thickness = 1
 portraitStroke.Parent = portraitFrame
 
 -- ViewportFrame для 3D портрета NPC
@@ -278,39 +348,121 @@ local portraitCamera = Instance.new("Camera")
 portraitCamera.Parent = portraitViewport
 portraitViewport.CurrentCamera = portraitCamera
 
--- === ПАНЕЛЬ ТЕКСТА (справа) ===
+-- Угловые декорации портрета
+local pCornerTL = Instance.new("ImageLabel")
+pCornerTL.Size = UDim2.new(0, 10, 0, 10)
+pCornerTL.Position = UDim2.new(0, 0, 0, 0)
+pCornerTL.BackgroundTransparency = 1
+pCornerTL.Image = "rbxassetid://132921287217893"
+pCornerTL.ImageColor3 = COLORS.BorderDim
+pCornerTL.Parent = portraitOuter
+
+local pCornerBR = Instance.new("ImageLabel")
+pCornerBR.Size = UDim2.new(0, 10, 0, 10)
+pCornerBR.Position = UDim2.new(1, -10, 1, -10)
+pCornerBR.BackgroundTransparency = 1
+pCornerBR.Image = "rbxassetid://132921287217893"
+pCornerBR.ImageColor3 = COLORS.BorderDim
+pCornerBR.Rotation = 180
+pCornerBR.Parent = portraitOuter
+
+-- === ПАНЕЛЬ ТЕКСТА (справа, двойная рамка) ===
+-- Внешний фрейм текста
+local textPanelOuter = Instance.new("Frame")
+textPanelOuter.Name = "TextPanelOuter"
+textPanelOuter.Size = UDim2.new(0, 490, 0, 180)
+textPanelOuter.Position = UDim2.new(0, 200, 0, 10)
+textPanelOuter.BackgroundColor3 = COLORS.PanelDark
+textPanelOuter.BorderSizePixel = 0
+textPanelOuter.Parent = dialogueFrame
+
+local textPanelOuterStroke = Instance.new("UIStroke")
+textPanelOuterStroke.Color = COLORS.BorderDim
+textPanelOuterStroke.Thickness = 1
+textPanelOuterStroke.Parent = textPanelOuter
+
+-- Внутренний фрейм текста
 local textPanel = Instance.new("Frame")
 textPanel.Name = "TextPanel"
-textPanel.Size = UDim2.new(0, 480, 0, 180)
-textPanel.Position = UDim2.new(0, 200, 0, 10)
-textPanel.BackgroundColor3 = PANEL_DARK
+textPanel.Size = UDim2.new(1, -6, 1, -6)
+textPanel.Position = UDim2.new(0, 3, 0, 3)
+textPanel.BackgroundColor3 = COLORS.Panel
 textPanel.BorderSizePixel = 0
-textPanel.Parent = dialogueFrame
-
-local textPanelCorner = Instance.new("UICorner")
-textPanelCorner.CornerRadius = UDim.new(0, 6)
-textPanelCorner.Parent = textPanel
+textPanel.Parent = textPanelOuter
 
 local textPanelStroke = Instance.new("UIStroke")
-textPanelStroke.Color = BORDER_COLOR
-textPanelStroke.Thickness = 2
+textPanelStroke.Color = COLORS.BorderDark
+textPanelStroke.Thickness = 1
 textPanelStroke.Parent = textPanel
+
+-- Угловые декорации текстовой панели
+local tCornerTL = Instance.new("ImageLabel")
+tCornerTL.Size = UDim2.new(0, 10, 0, 10)
+tCornerTL.Position = UDim2.new(0, 0, 0, 0)
+tCornerTL.BackgroundTransparency = 1
+tCornerTL.Image = "rbxassetid://132921287217893"
+tCornerTL.ImageColor3 = COLORS.BorderDim
+tCornerTL.Parent = textPanelOuter
+
+local tCornerTR = Instance.new("ImageLabel")
+tCornerTR.Size = UDim2.new(0, 10, 0, 10)
+tCornerTR.Position = UDim2.new(1, -10, 0, 0)
+tCornerTR.BackgroundTransparency = 1
+tCornerTR.Image = "rbxassetid://132921287217893"
+tCornerTR.ImageColor3 = COLORS.BorderDim
+tCornerTR.Rotation = 90
+tCornerTR.Parent = textPanelOuter
+
+local tCornerBL = Instance.new("ImageLabel")
+tCornerBL.Size = UDim2.new(0, 10, 0, 10)
+tCornerBL.Position = UDim2.new(0, 0, 1, -10)
+tCornerBL.BackgroundTransparency = 1
+tCornerBL.Image = "rbxassetid://132921287217893"
+tCornerBL.ImageColor3 = COLORS.BorderDim
+tCornerBL.Rotation = -90
+tCornerBL.Parent = textPanelOuter
+
+local tCornerBR = Instance.new("ImageLabel")
+tCornerBR.Size = UDim2.new(0, 10, 0, 10)
+tCornerBR.Position = UDim2.new(1, -10, 1, -10)
+tCornerBR.BackgroundTransparency = 1
+tCornerBR.Image = "rbxassetid://132921287217893"
+tCornerBR.ImageColor3 = COLORS.BorderDim
+tCornerBR.Rotation = 180
+tCornerBR.Parent = textPanelOuter
 
 -- Текст диалога
 local dialogueText = Instance.new("TextLabel")
 dialogueText.Name = "DialogueText"
-dialogueText.Size = UDim2.new(1, -20, 1, -40)
-dialogueText.Position = UDim2.new(0, 10, 0, 10)
+dialogueText.Size = UDim2.new(1, -20, 0, 68)
+dialogueText.Position = UDim2.new(0, 10, 0, 8)
 dialogueText.BackgroundTransparency = 1
 dialogueText.Text = ""
-dialogueText.TextColor3 = TEXT_COLOR
-dialogueText.TextSize = 18
+dialogueText.TextColor3 = COLORS.Text
+dialogueText.TextSize = 16
 dialogueText.Font = Enum.Font.Gotham
 dialogueText.TextXAlignment = Enum.TextXAlignment.Left
 dialogueText.TextYAlignment = Enum.TextYAlignment.Top
 dialogueText.TextWrapped = true
 dialogueText.RichText = true
 dialogueText.Parent = textPanel
+
+-- Градиентная линия-разделитель
+local dividerLine = Instance.new("Frame")
+dividerLine.Name = "DividerLine"
+dividerLine.Size = UDim2.new(1, -20, 0, 1)
+dividerLine.Position = UDim2.new(0, 10, 0, 72)
+dividerLine.BackgroundColor3 = COLORS.BorderDim
+dividerLine.BorderSizePixel = 0
+dividerLine.Parent = textPanel
+
+local lineGradient = Instance.new("UIGradient")
+lineGradient.Transparency = NumberSequence.new({
+	NumberSequenceKeypoint.new(0, 0.8),
+	NumberSequenceKeypoint.new(0.5, 0),
+	NumberSequenceKeypoint.new(1, 0.8)
+})
+lineGradient.Parent = dividerLine
 
 -- Подсказка "Click to continue"
 local hintLabel = Instance.new("TextLabel")
@@ -319,8 +471,8 @@ hintLabel.Size = UDim2.new(1, -20, 0, 20)
 hintLabel.Position = UDim2.new(0, 10, 1, -25)
 hintLabel.BackgroundTransparency = 1
 hintLabel.Text = "Click to continue"
-hintLabel.TextColor3 = HINT_COLOR
-hintLabel.TextSize = 14
+hintLabel.TextColor3 = COLORS.TextDim
+hintLabel.TextSize = 13
 hintLabel.Font = Enum.Font.Gotham
 hintLabel.TextXAlignment = Enum.TextXAlignment.Right
 hintLabel.Parent = textPanel
@@ -328,16 +480,16 @@ hintLabel.Parent = textPanel
 -- Контейнер для ответов (появляется когда есть выбор)
 local responsesFrame = Instance.new("Frame")
 responsesFrame.Name = "Responses"
-responsesFrame.Size = UDim2.new(1, -16, 0, 100)
-responsesFrame.Position = UDim2.new(0, 8, 0, 75)
+responsesFrame.Size = UDim2.new(1, -16, 0, 95)
+responsesFrame.Position = UDim2.new(0, 8, 0, 76)
 responsesFrame.BackgroundTransparency = 1
 responsesFrame.Visible = false
-responsesFrame.ClipsDescendants = true -- Обрезаем контент который выходит за рамки
+responsesFrame.ClipsDescendants = true
 responsesFrame.Parent = textPanel
 
 local responsesLayout = Instance.new("UIListLayout")
 responsesLayout.SortOrder = Enum.SortOrder.LayoutOrder
-responsesLayout.Padding = UDim.new(0, 3)
+responsesLayout.Padding = UDim.new(0, 2)
 responsesLayout.Parent = responsesFrame
 
 -- === БЛОКИРОВКА ДВИЖЕНИЯ ===
@@ -374,20 +526,25 @@ local function lockPlayerMovement()
 		humanoid.JumpPower = 0
 		humanoid.JumpHeight = 0
 
-		-- Останавливаем ВСЕ анимации движения на Animator
-		local animator = humanoid:FindFirstChildOfClass("Animator")
-		if animator then
-			for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
-				track:Stop(0.1)
-			end
-		end
-
-		-- Отключаем состояния движения
+		-- ВАЖНО: Отключаем состояния ПЕРЕД остановкой анимаций
 		humanoid:SetStateEnabled(Enum.HumanoidStateType.Running, false)
 		humanoid:SetStateEnabled(Enum.HumanoidStateType.RunningNoPhysics, false)
 		humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, false)
 		humanoid:SetStateEnabled(Enum.HumanoidStateType.Climbing, false)
 		humanoid:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+		humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+		humanoid:SetStateEnabled(Enum.HumanoidStateType.GettingUp, false)
+
+		-- Принудительно устанавливаем состояние None (нейтральное)
+		humanoid:ChangeState(Enum.HumanoidStateType.None)
+
+		-- Останавливаем ВСЕ анимации движения на Animator
+		local animator = humanoid:FindFirstChildOfClass("Animator")
+		if animator then
+			for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+				track:Stop(0)
+			end
+		end
 	end
 
 	-- Отключаем управление через PlayerModule
@@ -398,12 +555,17 @@ local function lockPlayerMovement()
 		end
 	end
 
-	-- Постоянно сбрасываем скорость (на случай если другие скрипты её меняют)
+	-- Постоянно сбрасываем скорость и состояние (на случай если другие скрипты их меняют)
 	movementConnection = RunService.Heartbeat:Connect(function()
 		if humanoid and isInDialogue then
 			humanoid.WalkSpeed = 0
 			humanoid.JumpPower = 0
 			humanoid.JumpHeight = 0
+			-- Принудительно держим в нейтральном состоянии
+			if humanoid:GetState() == Enum.HumanoidStateType.Freefall or 
+				humanoid:GetState() == Enum.HumanoidStateType.FallingDown then
+				humanoid:ChangeState(Enum.HumanoidStateType.None)
+			end
 		end
 	end)
 end
@@ -435,17 +597,22 @@ local function unlockPlayerMovement()
 	end
 
 	if humanoid then
-		-- Восстанавливаем состояния движения
+		-- Восстанавливаем ВСЕ состояния движения
 		humanoid:SetStateEnabled(Enum.HumanoidStateType.Running, true)
 		humanoid:SetStateEnabled(Enum.HumanoidStateType.RunningNoPhysics, true)
 		humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, true)
 		humanoid:SetStateEnabled(Enum.HumanoidStateType.Climbing, true)
 		humanoid:SetStateEnabled(Enum.HumanoidStateType.Freefall, true)
+		humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
+		humanoid:SetStateEnabled(Enum.HumanoidStateType.GettingUp, true)
 
 		-- Восстанавливаем движение
 		humanoid.WalkSpeed = savedWalkSpeed
 		humanoid.JumpPower = savedJumpPower
 		humanoid.JumpHeight = 7.2
+
+		-- Устанавливаем нормальное состояние
+		humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
 	end
 
 	-- Убираем значение диалога
@@ -478,7 +645,7 @@ local function setupDialogueCamera(npc)
 	-- Позиция камеры: справа за спиной игрока, смотрит на NPC
 	local npcLookPoint = npcRoot.Position + Vector3.new(0, 2, 0) -- Смотрим на NPC (на уровне головы)
 	local rightOffset = rootPart.CFrame.RightVector * 4 -- Правее
-	local backOffset = -directionToNPC * 1 -- Ближе к игроку
+	local backOffset = -directionToNPC * 0.5 -- Ближе к игроку
 	local cameraPosition = rootPart.Position + rightOffset + backOffset + Vector3.new(0, 2, 0)
 
 	-- Плавно перемещаем камеру
@@ -525,37 +692,55 @@ local function createResponseButton(index, text, nextDialogue)
 	local button = Instance.new("TextButton")
 	button.Name = "Response" .. index
 	button.Size = UDim2.new(1, 0, 0, 22)
-	button.BackgroundColor3 = PANEL_COLOR
+	button.BackgroundColor3 = COLORS.PanelDark
 	button.BackgroundTransparency = 0.3
-	button.Text = index .. ". " .. text
-	button.TextColor3 = TEXT_COLOR
-	button.TextSize = 13
-	button.Font = Enum.Font.Gotham
-	button.TextXAlignment = Enum.TextXAlignment.Left
+	button.Text = ""
 	button.AutoButtonColor = false
 	button.LayoutOrder = index
 	button.Parent = responsesFrame
 
-	local btnCorner = Instance.new("UICorner")
-	btnCorner.CornerRadius = UDim.new(0, 4)
-	btnCorner.Parent = button
+	local btnStroke = Instance.new("UIStroke")
+	btnStroke.Color = COLORS.BorderDark
+	btnStroke.Thickness = 1
+	btnStroke.Parent = button
 
-	local btnPadding = Instance.new("UIPadding")
-	btnPadding.PaddingLeft = UDim.new(0, 10)
-	btnPadding.Parent = button
+	-- Номер ответа (циановый)
+	local numberLabel = Instance.new("TextLabel")
+	numberLabel.Size = UDim2.new(0, 20, 1, 0)
+	numberLabel.Position = UDim2.new(0, 8, 0, 0)
+	numberLabel.BackgroundTransparency = 1
+	numberLabel.Text = index .. "."
+	numberLabel.TextColor3 = COLORS.Border
+	numberLabel.TextSize = 13
+	numberLabel.Font = Enum.Font.GothamBold
+	numberLabel.TextXAlignment = Enum.TextXAlignment.Left
+	numberLabel.Parent = button
+
+	-- Текст ответа
+	local textLabel = Instance.new("TextLabel")
+	textLabel.Size = UDim2.new(1, -35, 1, 0)
+	textLabel.Position = UDim2.new(0, 28, 0, 0)
+	textLabel.BackgroundTransparency = 1
+	textLabel.Text = text
+	textLabel.TextColor3 = COLORS.Text
+	textLabel.TextSize = 13
+	textLabel.Font = Enum.Font.Gotham
+	textLabel.TextXAlignment = Enum.TextXAlignment.Left
+	textLabel.TextTruncate = Enum.TextTruncate.AtEnd
+	textLabel.Parent = button
 
 	-- Hover эффект
 	button.MouseEnter:Connect(function()
 		hoverSound:Play()
-		TweenService:Create(button, TweenInfo.new(0.1), {
-			BackgroundTransparency = 0
-		}):Play()
+		TweenService:Create(button, TweenInfo.new(0.1), {BackgroundTransparency = 0}):Play()
+		TweenService:Create(btnStroke, TweenInfo.new(0.1), {Color = COLORS.Border}):Play()
+		TweenService:Create(textLabel, TweenInfo.new(0.1), {TextColor3 = COLORS.Border}):Play()
 	end)
 
 	button.MouseLeave:Connect(function()
-		TweenService:Create(button, TweenInfo.new(0.1), {
-			BackgroundTransparency = 0.3
-		}):Play()
+		TweenService:Create(button, TweenInfo.new(0.1), {BackgroundTransparency = 0.3}):Play()
+		TweenService:Create(btnStroke, TweenInfo.new(0.1), {Color = COLORS.BorderDark}):Play()
+		TweenService:Create(textLabel, TweenInfo.new(0.1), {TextColor3 = COLORS.Text}):Play()
 	end)
 
 	-- Клик
@@ -739,9 +924,11 @@ function showDialogue(dialogueIndex)
 
 	-- Настраиваем размер текста в зависимости от наличия ответов
 	if hasResponses then
-		dialogueText.Size = UDim2.new(1, -16, 0, 68) -- Больше места для текста
+		dialogueText.Size = UDim2.new(1, -20, 0, 62)
+		dividerLine.Visible = true
 	else
-		dialogueText.Size = UDim2.new(1, -16, 1, -30)
+		dialogueText.Size = UDim2.new(1, -20, 1, -30)
+		dividerLine.Visible = false
 	end
 
 	-- Запускаем typewriter эффект
@@ -782,9 +969,11 @@ function showReturningGreeting(npcName)
 
 	-- Настраиваем размер текста
 	if hasResponses then
-		dialogueText.Size = UDim2.new(1, -16, 0, 68) -- Больше места для текста
+		dialogueText.Size = UDim2.new(1, -20, 0, 62)
+		dividerLine.Visible = true
 	else
-		dialogueText.Size = UDim2.new(1, -16, 1, -30)
+		dialogueText.Size = UDim2.new(1, -20, 1, -30)
+		dividerLine.Visible = false
 	end
 
 	-- Запускаем typewriter эффект
@@ -826,6 +1015,14 @@ function openDialogue(npc)
 	-- Создаём 3D портрет NPC
 	setupNPCPortrait(npc)
 
+	-- Включаем Depth of Field (блюр персонажа игрока)
+	dialogueDoF.Enabled = true
+	TweenService:Create(dialogueDoF, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		NearIntensity = 1,
+		FocusDistance = 10,
+		InFocusRadius = 3
+	}):Play()
+
 	-- Показываем диалог
 	dialogueFrame.Visible = true
 
@@ -862,6 +1059,17 @@ function closeDialogue()
 	currentNPC = nil
 	dialogueFrame.Visible = false
 	clearResponses()
+
+	-- Выключаем Depth of Field
+	local dofTween = TweenService:Create(dialogueDoF, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		NearIntensity = 0,
+		FocusDistance = 20,
+		InFocusRadius = 50
+	})
+	dofTween:Play()
+	dofTween.Completed:Connect(function()
+		dialogueDoF.Enabled = false
+	end)
 
 	-- Разблокируем движение
 	unlockPlayerMovement()
@@ -947,5 +1155,59 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		end
 	end
 end)
+
+-- === ПРОВЕРКА ДИСТАНЦИИ ДЛЯ PROXIMITYPROMPT ===
+-- Кэшируем NPC для производительности
+local cachedNPCs = {}
+local lastCacheUpdate = 0
+local CACHE_UPDATE_INTERVAL = 2 -- Обновляем кэш каждые 2 секунды
+
+local function updateNPCCache()
+	cachedNPCs = {}
+	for npcName, _ in pairs(NPC_DIALOGUES) do
+		for _, descendant in ipairs(workspace:GetChildren()) do
+			if descendant:IsA("Model") and descendant.Name == npcName then
+				table.insert(cachedNPCs, descendant)
+			end
+		end
+	end
+end
+
+-- Скрываем промпт если игрок слишком близко к NPC
+local distanceCheckCounter = 0
+RunService.Heartbeat:Connect(function()
+	-- Проверяем только каждые 5 кадров для производительности
+	distanceCheckCounter = distanceCheckCounter + 1
+	if distanceCheckCounter < 5 then return end
+	distanceCheckCounter = 0
+	
+	-- Обновляем кэш NPC периодически
+	local now = tick()
+	if now - lastCacheUpdate > CACHE_UPDATE_INTERVAL then
+		updateNPCCache()
+		lastCacheUpdate = now
+	end
+	
+	local character = player.Character
+	if not character then return end
+	
+	local playerRoot = character:FindFirstChild("HumanoidRootPart")
+	if not playerRoot then return end
+	
+	-- Проверяем кэшированные NPC
+	for _, npc in ipairs(cachedNPCs) do
+		local npcRoot = npc:FindFirstChild("HumanoidRootPart")
+		if npcRoot then
+			local prompt = npcRoot:FindFirstChild("TalkPrompt")
+			if prompt then
+				local distance = (playerRoot.Position - npcRoot.Position).Magnitude
+				prompt.Enabled = distance >= MIN_DIALOGUE_DISTANCE and distance <= MAX_DIALOGUE_DISTANCE and not isInDialogue
+			end
+		end
+	end
+end)
+
+-- Инициализируем кэш
+updateNPCCache()
 
 print("NPCInteraction: Initialized")

@@ -41,7 +41,25 @@ local function needsCrouch()
 
 	local rayOrigin = head.Position
 	local params = RaycastParams.new()
-	params.FilterDescendantsInstances = {character}
+	
+	-- Собираем все модели персонажей для исключения
+	local excludeList = {character}
+	
+	-- Исключаем всех игроков
+	for _, plr in ipairs(Players:GetPlayers()) do
+		if plr.Character then
+			table.insert(excludeList, plr.Character)
+		end
+	end
+	
+	-- Исключаем NPC (модели с Humanoid)
+	for _, obj in ipairs(workspace:GetChildren()) do
+		if obj:IsA("Model") and obj:FindFirstChild("Humanoid") and obj ~= character then
+			table.insert(excludeList, obj)
+		end
+	end
+	
+	params.FilterDescendantsInstances = excludeList
 	params.FilterType = Enum.RaycastFilterType.Exclude
 
 	-- Длина 4 студа для уверенного обнаружения

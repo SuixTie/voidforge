@@ -92,15 +92,18 @@ local function createSlot(parent, size, position, name, labelText)
 	slotStroke.Thickness = 1
 	slotStroke.Parent = slot
 
-	-- Иконка предмета
-	local itemIcon = Instance.new("ImageLabel")
-	itemIcon.Name = "ItemIcon"
-	itemIcon.Size = UDim2.new(0.8, 0, 0.8, 0)
-	itemIcon.Position = UDim2.new(0.1, 0, 0.1, 0)
-	itemIcon.BackgroundTransparency = 1
-	itemIcon.Image = ""
-	itemIcon.ScaleType = Enum.ScaleType.Fit
-	itemIcon.Parent = slot
+	-- ViewportFrame для 3D модели предмета
+	local itemViewport = Instance.new("ViewportFrame")
+	itemViewport.Name = "ItemViewport"
+	itemViewport.Size = UDim2.new(0.85, 0, 0.85, 0)
+	itemViewport.Position = UDim2.new(0.075, 0, 0.075, 0)
+	itemViewport.BackgroundTransparency = 1
+	itemViewport.Parent = slot
+	
+	local viewportCamera = Instance.new("Camera")
+	viewportCamera.Name = "ViewportCamera"
+	viewportCamera.Parent = itemViewport
+	itemViewport.CurrentCamera = viewportCamera
 
 	-- Количество
 	local countLabel = Instance.new("TextLabel")
@@ -113,6 +116,7 @@ local function createSlot(parent, size, position, name, labelText)
 	countLabel.TextSize = 12
 	countLabel.Font = Enum.Font.GothamBold
 	countLabel.TextXAlignment = Enum.TextXAlignment.Right
+	countLabel.ZIndex = 2
 	countLabel.Parent = slot
 
 	-- Подпись слота (если есть)
@@ -540,11 +544,163 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	end
 end)
 
+-- === ФУНКЦИЯ ОТОБРАЖЕНИЯ 3D МОДЕЛИ В СЛОТЕ ===
+local function setSlotItem(slot, itemData)
+	local viewport = slot:FindFirstChild("ItemViewport")
+	if not viewport then return end
+	
+	local viewportCamera = viewport:FindFirstChild("ViewportCamera")
+	local countLabel = slot:FindFirstChild("Count")
+	
+	-- Очищаем старую модель
+	for _, child in ipairs(viewport:GetChildren()) do
+		if child:IsA("Model") or child:IsA("WorldModel") or child:IsA("BasePart") then
+			child:Destroy()
+		end
+	end
+	
+	-- Если нет предмета - очищаем слот
+	if not itemData then
+		if countLabel then
+			countLabel.Text = ""
+		end
+		slot.BackgroundColor3 = COLORS.SlotEmpty
+		return
+	end
+	
+	-- Ищем модель предмета в workspace или ReplicatedStorage
+	local modelName = itemData.modelName or itemData.itemId
+	local itemModel = nil
+	
+	-- Сначала ищем в ReplicatedStorage/Items
+	local itemsFolder = game:GetService("ReplicatedStorage"):FindFirstChild("Items")
+	if itemsFolder then
+		itemModel = itemsFolder:FindFirstChild(modelName)
+	end
+	
+	-- Если не нашли, ищем в workspace
+	if not itemModel then
+		itemModel = workspace:FindFirstChild(modelName)
+	end
+	
+	if not itemModel then
+		warn("InventoryMenu: Model not found:", modelName)
+		return
+	end
+	
+	-- Создаём WorldModel для viewport
+	local worldModel = Instance.new("WorldModel")
+	worldModel.Parent = viewport
+	
+	-- Клонируем модель
+	local clone = itemModel:Clone()
+	
+	-- Определяем размер модели для правильного позиционирования камеры
+	local modelCF, modelSize
+	if clone:IsA("Model") then
+		modelCF, modelSize = clone:GetBoundingBox()
+		-- Центрируем модель
+		if clone.PrimaryPart then
+			clone:PivotTo(CFrame.new(0, 0, 0))
+		else
+			local primaryPart = clone:FindFirstChildWhichIsA("BasePart")
+			if primaryPart then
+				clone.PrimaryPart = primaryPart
+				clone:PivotTo(CFrame.new(0, 0, 0))
+			end
+		end
+	else
+		-- Если это BasePart
+		modelSize = clone.Size
+		clone.CFrame = CFrame.new(0, 0, 0)
+	end
+	
+	clone.Parent = worldModel
+	
+	-- Настраиваем камеру чтобы модель была видна целиком
+	local maxSize = math.max(modelSize.X, modelSize.Y, modelSize.Z)
+	local cameraDistance = maxSize * 1.5
+	
+	if viewportCamera then
+		viewportCamera.CFrame = CFrame.lookAt(
+			Vector3.new(cameraDistance * 0.7, cameraDistance * 0.5, cameraDistance * 0.7),
+			Vector3.new(0, 0, 0)
+		)
+	end
+	
+	-- Обновляем количество
+	if countLabel then
+		if itemData.count and itemData.count > 1 then
+			countLabel.Text = tostring(itemData.count)
+		else
+			countLabel.Text = ""
+		end
+	end
+	
+	-- Меняем цвет слота на заполненный
+	slot.BackgroundColor3 = COLORS.SlotBg
+end
+
+-- === ФУНКЦИЯ ПОИСКА СЛОТА ПО ИНДЕКСУ ===
+local function findInventorySlot(index)
+	if not surfaceGui then return nil end
+	
+	local mainFrame = surfaceGui:FindFirstChild("MainFrame")
+	if not mainFrame then return nil end
+	
+	local inventoryPanel = mainFrame:FindFirstChild("InventoryPanel")
+	if not inventoryPanel then return nil end
+	
+	local inventoryGrid = inventoryPanel:FindFirstChild("InventoryGrid")
+	if not inventoryGrid then return nil end
+	
+	return inventoryGrid:FindFirstChild("InventorySlot_" .. index)
+end
+
+-- === ОБНОВЛЕНИЕ ИНВЕНТАРЯ ИЗ ДАННЫХ ===
+local function updateInventoryDisplay(slots)
+	if not inventoryOpen or not surfaceGui then return end
+	
+	-- Очищаем все слоты
+	for i = 1, 48 do
+		local slot = findInventorySlot(i)
+		if slot then
+			setSlotItem(slot, nil)
+		end
+	end
+	
+	-- Заполняем слоты с предметами
+	for slotIndex, itemData in pairs(slots) do
+		local slot = findInventorySlot(slotIndex)
+		if slot then
+			setSlotItem(slot, itemData)
+		end
+	end
+end
+
+-- === СЛУШАТЕЛЬ ОБНОВЛЕНИЙ ИНВЕНТАРЯ ===
+local function setupInventoryListener()
+	local inventoryChangedEvent = player:FindFirstChild("InventoryChanged")
+	if not inventoryChangedEvent then
+		inventoryChangedEvent = Instance.new("BindableEvent")
+		inventoryChangedEvent.Name = "InventoryChanged"
+		inventoryChangedEvent.Parent = player
+	end
+	
+	inventoryChangedEvent.Event:Connect(function(slots)
+		updateInventoryDisplay(slots)
+	end)
+end
+
+-- Инициализируем слушатель
+setupInventoryListener()
+
 -- === ЭКСПОРТ ===
 local InventoryMenu = {}
 InventoryMenu.Open = openInventory
 InventoryMenu.Close = closeInventory
 InventoryMenu.Toggle = toggleInventory
+InventoryMenu.UpdateDisplay = updateInventoryDisplay
 
 print("--- InventoryMenu 3D Part loaded ---")
 return InventoryMenu
