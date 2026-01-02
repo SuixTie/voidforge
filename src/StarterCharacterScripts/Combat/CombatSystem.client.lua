@@ -47,7 +47,7 @@ local function hasWeaponInHand()
 	-- Проверяем есть ли экипированное оружие на персонаже в руке
 	local equippedPrimary = character:FindFirstChild("Equipped_PRIMARY")
 	local equippedSecondary = character:FindFirstChild("Equipped_SECONDARY")
-	
+
 	-- Проверяем прикреплено ли оружие к руке (IN_HAND позиция)
 	if equippedPrimary then
 		local weld = equippedPrimary:FindFirstChildWhichIsA("Weld", true)
@@ -55,19 +55,19 @@ local function hasWeaponInHand()
 			return true, equippedPrimary, "PRIMARY"
 		end
 	end
-	
+
 	if equippedSecondary then
 		local weld = equippedSecondary:FindFirstChildWhichIsA("Weld", true)
 		if weld and weld.Part0 and weld.Part0.Name == "Right Arm" then
 			return true, equippedSecondary, "SECONDARY"
 		end
 	end
-	
+
 	-- Также проверяем через activeWeaponSlot
 	if activeWeaponSlot and equippedWeapons[activeWeaponSlot] then
 		return true, nil, activeWeaponSlot
 	end
-	
+
 	return false, nil, nil
 end
 
@@ -75,18 +75,18 @@ end
 local function getActiveWeaponData()
 	local hasWeapon, weaponModel, slot = hasWeaponInHand()
 	if not hasWeapon then return nil end
-	
+
 	if slot and equippedWeapons[slot] then
 		return equippedWeapons[slot]
 	end
-	
+
 	return nil
 end
 
 -- Получаем начальное состояние экипировки и активного оружия
 task.spawn(function()
 	task.wait(1) -- Ждём загрузки
-	
+
 	-- Получаем экипировку
 	if getEquippedFunc then
 		local success, result = pcall(function()
@@ -97,7 +97,7 @@ task.spawn(function()
 			print("CombatSystem: Initial equipment loaded:", equippedWeapons.PRIMARY and "PRIMARY" or "none", equippedWeapons.SECONDARY and "SECONDARY" or "none")
 		end
 	end
-	
+
 	-- Получаем активное оружие
 	if getActiveWeaponFunc then
 		local success, result = pcall(function()
@@ -125,7 +125,7 @@ if equipItemEvent then
 	equipItemEvent.OnClientEvent:Connect(function(newEquipped)
 		equippedWeapons = newEquipped or {}
 		print("CombatSystem: Equipment updated - PRIMARY:", equippedWeapons.PRIMARY and equippedWeapons.PRIMARY.itemId or "none", "SECONDARY:", equippedWeapons.SECONDARY and equippedWeapons.SECONDARY.itemId or "none")
-		
+
 		-- Проверяем есть ли оружие в активном слоте
 		if activeWeaponSlot and not equippedWeapons[activeWeaponSlot] then
 			-- Оружие убрали - переключаемся на другое или на кулаки
@@ -197,16 +197,16 @@ local swingSound = createSound(rootPart, "rbxassetid://8907343824", 0.4)
 local heavySwingSound = createSound(rootPart, "rbxassetid://9076453292", 0.5)
 
 -- Звуки свинга меча
-local swordSwingSound = createSound(rootPart, "rbxassetid://12222208", 0.5) -- Свист меча
-local swordHeavySwingSound = createSound(rootPart, "rbxassetid://12222216", 0.6) -- Тяжёлый свист меча
+local swordSwingSound = createSound(rootPart, "rbxassetid://6241709963", 0.5) -- Свист меча
+local swordHeavySwingSound = createSound(rootPart, "rbxassetid://135315310485417", 0.6) -- Тяжёлый свист меча
 
 -- Звуки попадания по врагам (кулаки)
 local lightHitSound = createSound(rootPart, "rbxassetid://3932505023", 0.5) -- Лёгкий удар по телу
 local heavyHitSound = createSound(rootPart, "rbxassetid://4306980885", 0.6) -- Тяжёлый удар по телу
 
 -- Звуки попадания меча по врагам
-local swordLightHitSound = createSound(rootPart, "rbxassetid://220833967", 0.5) -- Лёгкий удар мечом
-local swordHeavyHitSound = createSound(rootPart, "rbxassetid://220833976", 0.6) -- Тяжёлый удар мечом
+local swordLightHitSound = createSound(rootPart, "rbxassetid://6216173737", 0.5) -- Лёгкий удар мечом
+local swordHeavyHitSound = createSound(rootPart, "rbxassetid://7171761940", 0.6) -- Тяжёлый удар мечом
 
 -- Звуки попадания по стенам/объектам
 local wallHitSound = createSound(rootPart, "rbxassetid://1476374050", 0.4) -- Удар по камню/бетону
@@ -214,11 +214,16 @@ local metalHitSound = createSound(rootPart, "rbxassetid://108682776074559", 0.4)
 local woodHitSound = createSound(rootPart, "rbxassetid://9120917813", 0.4) -- Удар по дереву
 
 -- Звуки попадания меча по стенам
-local swordMetalHitSound = createSound(rootPart, "rbxassetid://130959691052925", 0.5) -- Меч по металлу
-local swordStoneHitSound = createSound(rootPart, "rbxassetid://130959691052925", 0.4) -- Меч по камню
+local swordMetalHitSound = createSound(rootPart, "rbxassetid://9116689911", 0.5) -- Меч по металлу
+local swordStoneHitSound = createSound(rootPart, "rbxassetid://9116689224", 0.3) -- Меч по камню
 
+-- Звуки блока и парирования (кулаки)
 local parrySound = createSound(rootPart, "rbxassetid://110940207848321", 0.7)
 local blockSound = createSound(rootPart, "rbxassetid://4549835866", 0.5)
+
+-- Звуки блока и парирования (меч)
+local swordParrySound = createSound(rootPart, "rbxassetid://9116689911", 0.7) -- Металлический звон парирования
+local swordBlockSound = createSound(rootPart, "rbxassetid://9116689224", 0.6) -- Звук блока мечом
 
 -- === АНИМАЦИИ (R6) ===
 local function loadAnimation(animId)
@@ -233,25 +238,25 @@ local function loadAnimationsFromConfig()
 		Fist = {Light = {}, Heavy = {}},
 		Weapons = {}
 	}
-	
+
 	-- Загружаем анимации кулаков
 	for i, animId in ipairs(CombatConfig.FistAnimations.Light) do
 		local track = loadAnimation(animId)
 		track.Priority = Enum.AnimationPriority.Action2
 		anims.Fist.Light[i] = track
 	end
-	
+
 	for i, animId in ipairs(CombatConfig.FistAnimations.Heavy) do
 		local track = loadAnimation(animId)
 		track.Priority = Enum.AnimationPriority.Action2
 		anims.Fist.Heavy[i] = track
 	end
-	
+
 	-- Загружаем анимации оружия
 	for weaponName, weaponData in pairs(CombatConfig.WeaponAttacks) do
 		if weaponData.Animations then
 			anims.Weapons[weaponName] = {Light = {}, Heavy = {}}
-			
+
 			if weaponData.Animations.Light then
 				for i, animId in ipairs(weaponData.Animations.Light) do
 					local track = loadAnimation(animId)
@@ -259,7 +264,7 @@ local function loadAnimationsFromConfig()
 					anims.Weapons[weaponName].Light[i] = track
 				end
 			end
-			
+
 			if weaponData.Animations.Heavy then
 				for i, animId in ipairs(weaponData.Animations.Heavy) do
 					local track = loadAnimation(animId)
@@ -267,9 +272,23 @@ local function loadAnimationsFromConfig()
 					anims.Weapons[weaponName].Heavy[i] = track
 				end
 			end
+
+			-- Загружаем анимации блока и парирования для оружия
+			if weaponData.Animations.Block then
+				local blockTrack = loadAnimation(weaponData.Animations.Block)
+				blockTrack.Priority = Enum.AnimationPriority.Action
+				blockTrack.Looped = true
+				anims.Weapons[weaponName].Block = blockTrack
+			end
+
+			if weaponData.Animations.Parry then
+				local parryTrack = loadAnimation(weaponData.Animations.Parry)
+				parryTrack.Priority = Enum.AnimationPriority.Action2
+				anims.Weapons[weaponName].Parry = parryTrack
+			end
 		end
 	end
-	
+
 	return anims
 end
 
@@ -279,16 +298,33 @@ local loadedAnimations = loadAnimationsFromConfig()
 local lightAttackAnims = loadedAnimations.Fist.Light
 local heavyAttackAnims = loadedAnimations.Fist.Heavy
 
--- Анимация блока
-local blockAnim = loadAnimation("rbxassetid://73242144324267") -- Блок (руки перед собой)
-blockAnim.Priority = Enum.AnimationPriority.Action
-blockAnim.Looped = true
-local blockTrack = blockAnim
+-- Анимации блока и парирования (кулаки - дефолтные)
+local fistBlockAnim = loadAnimation(CombatConfig.FistBlock or "rbxassetid://73242144324267")
+fistBlockAnim.Priority = Enum.AnimationPriority.Action
+fistBlockAnim.Looped = true
 
--- Анимация парирования (отдельная от блока - быстрый отбив рукой)
-local parryAnim = loadAnimation("rbxassetid://73242144324267") -- Парирование (быстрый отбив)
-parryAnim.Priority = Enum.AnimationPriority.Action2
-local parryTrack = parryAnim
+local fistParryAnim = loadAnimation(CombatConfig.FistParry or "rbxassetid://73242144324267")
+fistParryAnim.Priority = Enum.AnimationPriority.Action2
+
+-- Текущие активные треки блока/парирования (меняются в зависимости от оружия)
+local currentBlockTrack = fistBlockAnim
+local currentParryTrack = fistParryAnim
+
+-- Функция получения правильной анимации блока/парирования
+local function getBlockParryAnims()
+	local hasWeapon, _, weaponSlot = hasWeaponInHand()
+	local weaponData = getActiveWeaponData()
+
+	if hasWeapon and weaponData then
+		local weaponName = weaponData.itemId or weaponData.modelName
+		if loadedAnimations.Weapons[weaponName] then
+			local weaponAnims = loadedAnimations.Weapons[weaponName]
+			return weaponAnims.Block or fistBlockAnim, weaponAnims.Parry or fistParryAnim
+		end
+	end
+
+	return fistBlockAnim, fistParryAnim
+end
 
 -- === СОБЫТИЯ ===
 local combatEvent = Instance.new("BindableEvent")
@@ -520,7 +556,7 @@ end
 local function createSwingEffect(attackType, attackIndex, hasWeapon)
 	-- Если есть оружие - не создаём свинг эффект
 	if hasWeapon then return end
-	
+
 	-- Определяем какая рука бьёт
 	-- Лёгкие: 1-правая, 2-левая, 3-правая, 4-правая
 	-- Тяжёлые: всегда левая
@@ -541,7 +577,7 @@ local function createSwingEffect(attackType, attackIndex, hasWeapon)
 
 	-- Настройки в зависимости от типа атаки (только кулаки)
 	local swingColor, trailEndColor, trailLength, trailWidth
-	
+
 	-- Без оружия (кулаки) - менее заметные следы
 	swingColor = attackType == "Heavy" 
 		and Color3.fromRGB(255, 255, 255)  -- Белый для тяжёлых
@@ -755,7 +791,7 @@ local function createDamageLabel(position, damage, isCritical)
 	damageGui.StudsOffset = Vector3.new(math.random(-10, 10) / 10, 2, 0) -- Случайное смещение
 	damageGui.AlwaysOnTop = true
 	damageGui.MaxDistance = 100
-	
+
 	-- Создаём Part для привязки
 	local anchor = Instance.new("Part")
 	anchor.Name = "DamageLabelAnchor"
@@ -765,10 +801,10 @@ local function createDamageLabel(position, damage, isCritical)
 	anchor.CanCollide = false
 	anchor.Transparency = 1
 	anchor.Parent = workspace
-	
+
 	damageGui.Adornee = anchor
 	damageGui.Parent = player.PlayerGui
-	
+
 	-- Текст урона
 	local damageText = Instance.new("TextLabel")
 	damageText.Name = "DamageText"
@@ -777,7 +813,7 @@ local function createDamageLabel(position, damage, isCritical)
 	damageText.Text = tostring(math.floor(damage))
 	damageText.TextScaled = true
 	damageText.Font = Enum.Font.GothamBold
-	
+
 	-- Цвет в зависимости от урона
 	if isCritical or damage >= 30 then
 		damageText.TextColor3 = Color3.fromRGB(255, 50, 50) -- Красный для крита/большого урона
@@ -787,38 +823,38 @@ local function createDamageLabel(position, damage, isCritical)
 	else
 		damageText.TextColor3 = Color3.fromRGB(255, 255, 255) -- Белый
 	end
-	
+
 	damageText.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
 	damageText.TextStrokeTransparency = 0.3
 	damageText.Parent = damageGui
-	
+
 	-- Анимация: поднимается вверх и исчезает
 	task.spawn(function()
 		local startY = damageGui.StudsOffset.Y
 		local duration = 1.0
 		local startTime = tick()
-		
+
 		while tick() - startTime < duration do
 			local progress = (tick() - startTime) / duration
 			local easeOut = 1 - (1 - progress) ^ 2 -- Ease out quad
-			
+
 			-- Поднимаем вверх
 			damageGui.StudsOffset = Vector3.new(
 				damageGui.StudsOffset.X,
 				startY + (easeOut * 2),
 				0
 			)
-			
+
 			-- Уменьшаем прозрачность в конце
 			if progress > 0.5 then
 				local fadeProgress = (progress - 0.5) / 0.5
 				damageText.TextTransparency = fadeProgress
 				damageText.TextStrokeTransparency = 0.3 + (fadeProgress * 0.7)
 			end
-			
+
 			task.wait()
 		end
-		
+
 		damageGui:Destroy()
 		anchor:Destroy()
 	end)
@@ -874,7 +910,7 @@ local function createHitbox(range, damage, knockback, attackType, hasWeapon)
 			if CollectionService:HasTag(targetChar, "InvulnerableNPC") or CollectionService:HasTag(targetChar, "DialogueNPC") then
 				continue
 			end
-			
+
 			local targetHumanoid = targetChar:FindFirstChild("Humanoid")
 			local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
 
@@ -901,7 +937,7 @@ local function createHitbox(range, damage, knockback, attackType, hasWeapon)
 
 				-- VFX попадания
 				createHitEffect(part.Position, attackType)
-				
+
 				-- Всплывающий урон
 				local isCritical = attackType == "Heavy" and damage >= 30
 				createDamageLabel(part.Position, damage, isCritical)
@@ -925,7 +961,7 @@ local function canPerformAttack()
 	-- Проверяем диалог
 	local inDialogue = player:FindFirstChild("InDialogue")
 	if inDialogue and inDialogue.Value then return false end
-	
+
 	-- Проверяем бег
 	if RunConfig and RunConfig.Running then return false end
 
@@ -956,10 +992,10 @@ local function performAttack(attackType)
 	local hasWeapon, weaponModel, weaponSlot = hasWeaponInHand()
 	local weaponData = getActiveWeaponData()
 	local weaponName = nil
-	
+
 	-- Отладка
 	print("CombatSystem: Attack - hasWeapon:", hasWeapon, "weaponSlot:", weaponSlot, "weaponData:", weaponData and weaponData.itemId or "nil")
-	
+
 	if hasWeapon and weaponData then
 		-- Есть оружие в руках - используем атаки оружия
 		weaponName = weaponData.itemId or weaponData.modelName
@@ -994,7 +1030,7 @@ local function performAttack(attackType)
 		print("CombatSystem: Using fist attacks")
 		attacks = CombatConfig.Attacks[attackType]
 	end
-	
+
 	if not attacks then return end
 
 	-- Определяем какой удар в комбо
@@ -1064,13 +1100,13 @@ local function performAttack(attackType)
 		animArray = loadedAnimations.Weapons[weaponName][attackType]
 		print("CombatSystem: Using", weaponName, "animations for", attackType)
 	end
-	
+
 	-- Если нет анимаций для оружия - используем базовые (кулаки)
 	if not animArray or #animArray == 0 then
 		animArray = attackType == "Light" and lightAttackAnims or heavyAttackAnims
 		print("CombatSystem: Using fist animations for", attackType)
 	end
-	
+
 	local animIndex = math.min(attackIndex, #animArray)
 	currentAttackTrack = animArray[animIndex]
 	currentAttackTrack:Play(0.1)
@@ -1101,7 +1137,7 @@ local function performAttack(attackType)
 			if hasWeapon then
 				knockback = knockback * 1.3
 			end
-			
+
 			local didHit = createHitbox(attackData.range, damage, knockback, attackType, hasWeapon)
 
 			if didHit then
@@ -1152,7 +1188,7 @@ end
 
 local function startBlock()
 	if isAttacking or isStaggered then return end
-	
+
 	-- Проверяем диалог
 	local inDialogue = player:FindFirstChild("InDialogue")
 	if inDialogue and inDialogue.Value then return end
@@ -1164,10 +1200,21 @@ local function startBlock()
 	-- Замедляем движение при блоке
 	humanoid.WalkSpeed = BLOCK_WALK_SPEED
 
-	-- Анимация блока
-	blockTrack:Play(0.15)
+	-- Получаем правильную анимацию блока (в зависимости от оружия)
+	currentBlockTrack, currentParryTrack = getBlockParryAnims()
 
-	blockSound:Play()
+	-- Анимация блока
+	currentBlockTrack:Play(0.15)
+
+	-- Звук блока (разный для кулаков и меча)
+	local hasWeapon = hasWeaponInHand()
+	if hasWeapon then
+		swordBlockSound.PlaybackSpeed = 0.9 + math.random() * 0.2
+		swordBlockSound:Play()
+	else
+		blockSound:Play()
+	end
+	
 	combatEvent:Fire("block", true)
 end
 
@@ -1179,7 +1226,7 @@ local function stopBlock()
 	blockingValue.Value = false -- Для сервера
 
 	-- Останавливаем анимацию блока
-	blockTrack:Stop(0.2)
+	currentBlockTrack:Stop(0.2)
 
 	-- Восстанавливаем скорость (если не атакуем)
 	if not isAttacking then
@@ -1196,7 +1243,7 @@ local parryWindowStart = 0
 local function attemptParry()
 	if isAttacking or isStaggered or isParrying then return end
 	if not canAffordStamina(CombatConfig.Parry.StaminaCost) then return end
-	
+
 	-- Проверяем диалог
 	local inDialogue = player:FindFirstChild("InDialogue")
 	if inDialogue and inDialogue.Value then return end
@@ -1208,11 +1255,21 @@ local function attemptParry()
 
 	useStamina(CombatConfig.Parry.StaminaCost)
 
-	-- Анимация парирования
-	parryTrack:Play(0.05)
-	parryTrack:AdjustSpeed(1.5) -- Быстрое парирование
+	-- Получаем правильную анимацию парирования (в зависимости от оружия)
+	currentBlockTrack, currentParryTrack = getBlockParryAnims()
 
-	parrySound:Play()
+	-- Анимация парирования
+	currentParryTrack:Play(0.05)
+	currentParryTrack:AdjustSpeed(1.5) -- Быстрое парирование
+
+	-- Звук парирования (разный для кулаков и меча)
+	local hasWeapon = hasWeaponInHand()
+	if hasWeapon then
+		swordParrySound.PlaybackSpeed = 0.9 + math.random() * 0.2
+		swordParrySound:Play()
+	else
+		parrySound:Play()
+	end
 
 	-- Окно парирования
 	task.delay(CombatConfig.Parry.Window, function()
@@ -1221,7 +1278,7 @@ local function attemptParry()
 
 	-- Остановка анимации и кулдаун
 	task.delay(0.3, function()
-		parryTrack:Stop(0.15)
+		currentParryTrack:Stop(0.15)
 	end)
 
 	-- Кулдаун
@@ -1284,7 +1341,7 @@ local function findNearestTarget()
 				if CollectionService:HasTag(npc, "InvulnerableNPC") then
 					continue
 				end
-				
+
 				local npcHumanoid = npc:FindFirstChild("Humanoid")
 				local npcRoot = npc:FindFirstChild("HumanoidRootPart")
 
@@ -1436,8 +1493,17 @@ humanoid.Died:Connect(function()
 		currentAttackTrack:Stop()
 	end
 
-	blockTrack:Stop()
-	parryTrack:Stop()
+	-- Останавливаем все анимации блока/парирования
+	currentBlockTrack:Stop()
+	currentParryTrack:Stop()
+	fistBlockAnim:Stop()
+	fistParryAnim:Stop()
+
+	-- Останавливаем анимации оружия
+	for _, weaponAnims in pairs(loadedAnimations.Weapons) do
+		if weaponAnims.Block then weaponAnims.Block:Stop() end
+		if weaponAnims.Parry then weaponAnims.Parry:Stop() end
+	end
 end)
 
 -- === ЭКСПОРТ ===

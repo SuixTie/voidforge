@@ -58,9 +58,15 @@ CombatConfig.WeaponAttacks = {
 				"rbxassetid://134962871921879", -- Heavy Slash 2
 				"rbxassetid://134962871921879", -- Heavy Slash 3
 			},
+			Block = "rbxassetid://140159702498498", -- Блок мечом (меч перед собой)
+			Parry = "rbxassetid://140159702498498", -- Парирование мечом (быстрый отбив)
 		},
 	},
 }
+
+-- Дефолтные анимации блока и парирования (кулаки)
+CombatConfig.FistBlock = "rbxassetid://73242144324267"
+CombatConfig.FistParry = "rbxassetid://73242144324267"
 
 -- Дефолтные анимации для кулаков
 CombatConfig.FistAnimations = {
