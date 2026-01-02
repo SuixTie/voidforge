@@ -406,59 +406,108 @@ local function createHitEffect(hitPart, attackType, attackIndex, hasWeapon)
 	if not hitPart then return end
 	
 	local effectName
+	local bloodEffectName = nil
 	local effectIndex = attackIndex or 1
 	
 	if hasWeapon then
-		-- Для меча пробуем найти Slash эффекты, если нет - используем Punch
-		effectName = string.format("Slash-%02d", effectIndex)
-		if not FxFolder:FindFirstChild(effectName) then
-			effectName = string.format("Punch-%02d", effectIndex)
+		-- Для меча используем Slash-Impact-01
+		effectName = "Slash-Impact-01"
+		-- Добавляем эффект крови для меча
+		if attackType == "Heavy" then
+			bloodEffectName = "Blood-01"
+		else
+			bloodEffectName = "Blood-02"
 		end
 	else
 		-- Для кулаков используем Punch эффекты
 		effectName = string.format("Punch-%02d", effectIndex)
 	end
 	
-	local effectTemplate = FxFolder:FindFirstChild(effectName)
-	if not effectTemplate then
-		-- Пробуем найти Punch-01 как fallback
-		effectTemplate = FxFolder:FindFirstChild("Punch-01")
+	-- Функция для создания и запуска эффекта
+	local function spawnEffect(fxName)
+		local effectTemplate = FxFolder:FindFirstChild(fxName)
 		if not effectTemplate then
-			warn("CombatSystem: Effect not found:", effectName)
+			warn("CombatSystem: Effect not found:", fxName)
 			return
 		end
-	end
-	
-	-- Клонируем эффект и прикрепляем к части тела
-	local effectClone = effectTemplate:Clone()
-	effectClone.Transparency = 1 -- Скрываем сам парт
-	effectClone.CanCollide = false
-	effectClone.Massless = true
-	effectClone.Anchored = false
-	
-	-- Создаём Weld для прикрепления к части тела
-	local weld = Instance.new("Weld")
-	weld.Part0 = hitPart
-	weld.Part1 = effectClone
-	weld.C0 = CFrame.new(0, 0, 0) -- По центру части
-	weld.Parent = effectClone
-	
-	effectClone.Parent = hitPart.Parent -- Помещаем в модель персонажа
-	
-	-- Находим все ParticleEmitter внутри и запускаем их ОДИН раз
-	for _, child in ipairs(effectClone:GetDescendants()) do
-		if child:IsA("ParticleEmitter") then
-			-- Отключаем автоматическую эмиссию
-			child.Enabled = false
-			child.Rate = 0
-			-- Запускаем частицы один раз
-			local emitCount = child:GetAttribute("EmitCount") or 15
-			child:Emit(emitCount)
+		
+		-- Клонируем эффект
+		local effectClone = effectTemplate:Clone()
+		
+		-- Сохраняем ссылку на часть тела для отслеживания
+		local targetPart = hitPart
+		
+		-- Эффект - это Part с Attachment внутри
+		if effectClone:IsA("BasePart") then
+			effectClone.Transparency = 1
+			effectClone.CanCollide = false
+			effectClone.Massless = true
+			effectClone.Anchored = true
+			
+			-- Позиционируем Part в позицию hitPart
+			effectClone.CFrame = targetPart.CFrame
+			
+			-- Помещаем в workspace
+			effectClone.Parent = workspace
+			
+			-- Следуем за targetPart пока эффект существует
+			local connection
+			local isConnected = true
+			connection = RunService.Heartbeat:Connect(function()
+				if not isConnected then return end
+				
+				if effectClone and effectClone.Parent then
+					if targetPart and targetPart.Parent then
+						effectClone.CFrame = targetPart.CFrame
+					else
+						-- targetPart удалён - отключаемся
+						isConnected = false
+						connection:Disconnect()
+					end
+				else
+					-- effectClone удалён - отключаемся
+					isConnected = false
+					connection:Disconnect()
+				end
+			end)
+			
+			-- Отключаем соединение когда эффект удаляется
+			task.delay(2.1, function()
+				if isConnected and connection then
+					isConnected = false
+					connection:Disconnect()
+				end
+			end)
+		else
+			-- Fallback для других типов
+			effectClone.Parent = workspace
 		end
+		
+		-- Находим все ParticleEmitter внутри и запускаем их ОДИН раз
+		for _, child in ipairs(effectClone:GetDescendants()) do
+			if child:IsA("ParticleEmitter") then
+				-- Отключаем автоматическую эмиссию
+				child.Enabled = false
+				child.Rate = 0
+				-- Частицы следуют за Part'ом
+				child.LockedToPart = true
+				-- Запускаем частицы один раз
+				local emitCount = child:GetAttribute("EmitCount") or 15
+				child:Emit(emitCount)
+			end
+		end
+		
+		-- Удаляем эффект через некоторое время
+		Debris:AddItem(effectClone, 2)
 	end
 	
-	-- Удаляем эффект через некоторое время
-	Debris:AddItem(effectClone, 2)
+	-- Создаём основной эффект удара
+	spawnEffect(effectName)
+	
+	-- Создаём эффект крови (только для меча)
+	if bloodEffectName then
+		spawnEffect(bloodEffectName)
+	end
 end
 
 -- === VFX СВИНГА (СЛЕД ОТ УДАРА) ===

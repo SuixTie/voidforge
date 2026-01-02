@@ -44,7 +44,7 @@ print("StaminaSystem: Events created")
 
 -- === НАСТРОЙКИ СТАМИНЫ ===
 local CONFIG = {
-	MaxStamina = 100,
+	MaxStamina = 1000,
 
 	-- Затраты стамины
 	JumpCost = 5,                -- Прыжок (было 8)
@@ -55,7 +55,7 @@ local CONFIG = {
 	DashCost = 15,               -- Дэш (было 20)
 	ClimbCost = 8,               -- Забирание на уступ (было 10)
 	HangCostPerSecond = 1,       -- Вис на уступе
-	
+
 	-- Боевые затраты (базовые, реальные в CombatConfig)
 	LightAttackCost = 8,         -- Лёгкая атака
 	HeavyAttackCost = 18,        -- Тяжёлая атака
@@ -179,7 +179,7 @@ local function updateHUD()
 	if staminaValue then
 		staminaValue.Value = currentStamina
 	end
-	
+
 	-- Всегда ищем актуальное событие (может быть пересоздано после ресета)
 	local event = player:FindFirstChild("StaminaUpdateEvent")
 	if event then
@@ -196,7 +196,7 @@ local function getStaminaEvent()
 		staminaEvent = event 
 		return staminaEvent
 	end
-	
+
 	-- Ждём если ещё не создано
 	event = player:WaitForChild("StaminaUpdateEvent", 5)
 	if event then staminaEvent = event end
@@ -229,7 +229,7 @@ end
 
 local function regenStamina(dt, multiplier)
 	if isBreathing then return end
-	
+
 	-- Не восстанавливаем стамину в воздухе
 	if humanoid.FloorMaterial == Enum.Material.Air then return end
 
@@ -283,11 +283,11 @@ end
 local function updateSpeed()
 	currentSpeedMultiplier = calculateSpeedMultiplier()
 	local jumpMultiplier = calculateJumpMultiplier()
-	
+
 	-- Проверяем диалог - не меняем прыжок во время диалога
 	local inDialogue = player:FindFirstChild("InDialogue")
 	local isInDialogue = inDialogue and inDialogue.Value == true
-	
+
 	-- Обновляем высоту прыжка (только если не в отдышке, не в диалоге и можем прыгать)
 	if not isBreathing and not isInDialogue and currentStamina > CONFIG.JumpCost then
 		humanoid.JumpHeight = CONFIG.NormalJumpHeight * jumpMultiplier
@@ -298,10 +298,10 @@ local function updateSpeed()
 		humanoid.JumpPower = 0
 	end
 	-- Если в диалоге - не трогаем JumpHeight/JumpPower (NPCInteraction управляет)
-	
+
 	-- Оповещаем другие скрипты
 	speedUpdateEvent:Fire(currentSpeedMultiplier)
-	
+
 	-- Обновляем событие истощения для совместимости
 	local staminaPercent = currentStamina / CONFIG.MaxStamina
 	if staminaPercent <= CONFIG.SlowdownThreshold then
@@ -329,7 +329,7 @@ end
 
 local function executeBreathing()
 	if isDead then return end  -- Не выполняем отдышку если мертвы
-	
+
 	if rootPart then
 		rootPart.Anchored = true
 	end
@@ -345,7 +345,7 @@ local function executeBreathing()
 
 	stopAllAnimations()
 	breathingTrack:Play(0.2)
-	
+
 	-- Плавный fade in для звука отдышки
 	breathingSound.Volume = 0
 	breathingSound:Play()
@@ -381,7 +381,7 @@ local function executeBreathing()
 		isRunning = false  -- Сбрасываем флаг бега после отдышки
 
 		breathingTrack:Stop(0.3)
-		
+
 		-- Плавный fade out для звука отдышки
 		TweenService:Create(breathingSound, TweenInfo.new(1.0, Enum.EasingStyle.Sine, Enum.EasingDirection.In), {Volume = 0}):Play()
 		task.delay(1.0, function()
@@ -467,7 +467,7 @@ end)
 local function getPlayerState()
 	local isCrouchingValue = player:FindFirstChild("IsCrouching")
 	local isSlidingValue = player:FindFirstChild("IsSliding")
-	
+
 	return {
 		isCrouching = isCrouchingValue and isCrouchingValue.Value or false,
 		isSliding = isSlidingValue and isSlidingValue.Value or false,
@@ -645,20 +645,20 @@ humanoid.Died:Connect(function()
 	isDead = true
 	isBreathing = false
 	pendingBreathing = false
-	
+
 	-- Останавливаем все звуки отдышки
 	breathingSound:Stop()
 	lowStaminaBreathingSound:Stop()
-	
+
 	-- Останавливаем анимацию отдышки
 	breathingTrack:Stop(0)
-	
+
 	-- Отключаем соединение если есть
 	if breathingConnection then
 		breathingConnection:Disconnect()
 		breathingConnection = nil
 	end
-	
+
 	-- Разблокируем персонажа
 	if rootPart then
 		rootPart.Anchored = false
