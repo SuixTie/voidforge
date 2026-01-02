@@ -1359,6 +1359,21 @@ local function findNearestTarget()
 end
 
 local function toggleLockOn()
+	-- Не включаем lock-on если игрок висит
+	if LedgeGrabConfig and LedgeGrabConfig.IsHanging then
+		-- Если уже есть lock-on - отключаем его
+		if lockedTarget then
+			lockedTarget = nil
+			CombatConfig.IsLockedOn = false
+			if lockOnIndicator then
+				lockOnIndicator:Destroy()
+				lockOnIndicator = nil
+			end
+			combatEvent:Fire("lockOn", false)
+		end
+		return
+	end
+	
 	if lockedTarget then
 		-- Отключаем lock-on
 		lockedTarget = nil
@@ -1396,6 +1411,12 @@ end
 -- Обновление lock-on
 RunService.RenderStepped:Connect(function()
 	if lockedTarget then
+		-- Отключаем lock-on если игрок начал висеть
+		if LedgeGrabConfig and LedgeGrabConfig.IsHanging then
+			toggleLockOn()
+			return
+		end
+		
 		local targetRoot = lockedTarget:FindFirstChild("HumanoidRootPart")
 		local targetHumanoid = lockedTarget:FindFirstChild("Humanoid")
 
@@ -1470,8 +1491,14 @@ UserInputService.InputEnded:Connect(function(input, gameProcessed)
 	end
 end)
 
+-- Тряска камеры только при получении урона (не при регенерации)
+local lastHealth = humanoid.Health
 humanoid.HealthChanged:Connect(function(newHealth)
-	shakeCamera(0.4, 0.25)
+	-- Только если здоровье уменьшилось (получили урон)
+	if newHealth < lastHealth then
+		shakeCamera(0.4, 0.25)
+	end
+	lastHealth = newHealth
 end)
 
 humanoid.Died:Connect(function()

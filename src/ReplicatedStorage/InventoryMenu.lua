@@ -230,7 +230,7 @@ local function createDragGhost(itemData)
 		screenGui.DisplayOrder = 100
 		screenGui.Parent = playerGui
 	end
-	
+
 	-- Создаём frame для ghost
 	local ghost = Instance.new("Frame")
 	ghost.Name = "DragGhost"
@@ -239,48 +239,48 @@ local function createDragGhost(itemData)
 	ghost.BackgroundTransparency = 0.3
 	ghost.BorderSizePixel = 0
 	ghost.Parent = screenGui
-	
+
 	local ghostStroke = Instance.new("UIStroke")
 	ghostStroke.Color = COLORS.Highlight
 	ghostStroke.Thickness = 2
 	ghostStroke.Parent = ghost
-	
+
 	-- ViewportFrame для 3D модели
 	local viewport = Instance.new("ViewportFrame")
 	viewport.Name = "GhostViewport"
 	viewport.Size = UDim2.new(1, 0, 1, 0)
 	viewport.BackgroundTransparency = 1
 	viewport.Parent = ghost
-	
+
 	local viewportCamera = Instance.new("Camera")
 	viewportCamera.Parent = viewport
 	viewport.CurrentCamera = viewportCamera
-	
+
 	-- Ищем модель предмета
 	local modelName = itemData.modelName or itemData.itemId
 	local itemModel = nil
-	
+
 	local itemsFolder = ReplicatedStorage:FindFirstChild("Items")
 	if itemsFolder then
 		itemModel = itemsFolder:FindFirstChild(modelName)
 	end
-	
+
 	if not itemModel then
 		itemModel = workspace:FindFirstChild(modelName)
 	end
-	
+
 	if itemModel then
 		local worldModel = Instance.new("WorldModel")
 		worldModel.Parent = viewport
-		
+
 		local clone = itemModel:Clone()
-		
+
 		-- Получаем индивидуальную ориентацию для предмета
 		local orientation = ITEM_ORIENTATIONS[modelName] or DEFAULT_ITEM_ORIENTATION
 		local pos = orientation.position
 		local rot = orientation.rotation
 		local itemCFrame = CFrame.new(pos.X, pos.Y, pos.Z) * CFrame.Angles(math.rad(rot.X), math.rad(rot.Y), math.rad(rot.Z))
-		
+
 		local modelCF, modelSize
 		if clone:IsA("Model") then
 			modelCF, modelSize = clone:GetBoundingBox()
@@ -297,19 +297,19 @@ local function createDragGhost(itemData)
 			modelSize = clone.Size
 			clone.CFrame = itemCFrame
 		end
-		
+
 		clone.Parent = worldModel
-		
+
 		local maxSize = math.max(modelSize.X, modelSize.Y, modelSize.Z)
 		local cameraDistance = maxSize * 1.5
-		
+
 		viewportCamera.CFrame = CFrame.lookAt(
 			Vector3.new(cameraDistance, 0, 0),
 			Vector3.new(0, 0, 0)
 		)
 		viewportCamera.FieldOfView = 50
 	end
-	
+
 	-- Название предмета
 	local nameLabel = Instance.new("TextLabel")
 	nameLabel.Size = UDim2.new(1, 0, 0, 16)
@@ -320,7 +320,7 @@ local function createDragGhost(itemData)
 	nameLabel.TextSize = 10
 	nameLabel.Font = Enum.Font.GothamBold
 	nameLabel.Parent = ghost
-	
+
 	return ghost
 end
 
@@ -333,16 +333,16 @@ end
 local function startDrag(slot, slotIndex)
 	local itemData = inventorySlotData[slotIndex]
 	if not itemData then return end
-	
+
 	isDragging = true
 	dragStartSlot = slot
 	dragStartSlotIndex = slotIndex
 	dragStartEquipSlot = nil -- Сбрасываем
-	
+
 	-- Создаём ghost
 	dragGhostFrame = createDragGhost(itemData)
 	updateDragGhostPosition()
-	
+
 	-- Делаем исходный слот полупрозрачным
 	slot.BackgroundTransparency = 0.7
 	local viewport = slot:FindFirstChild("ItemViewport")
@@ -355,16 +355,16 @@ end
 startDragFromEquip = function(slot, equipSlotType)
 	local itemData = equippedSlotData[equipSlotType]
 	if not itemData then return end
-	
+
 	isDragging = true
 	dragStartSlot = slot
 	dragStartSlotIndex = nil -- Не из инвентаря
 	dragStartEquipSlot = equipSlotType
-	
+
 	-- Создаём ghost
 	dragGhostFrame = createDragGhost(itemData)
 	updateDragGhostPosition()
-	
+
 	-- Делаем исходный слот полупрозрачным
 	slot.BackgroundTransparency = 0.7
 	local viewport = slot:FindFirstChild("ItemViewport")
@@ -375,14 +375,14 @@ end
 
 local function endDrag(targetSlot)
 	if not isDragging then return end
-	
+
 	local targetSlotIndex = nil
 	local targetEquipSlot = nil
-	
+
 	if targetSlot then
 		local slotName = targetSlot.Name
 		targetSlotIndex = tonumber(slotName:match("InventorySlot_(%d+)"))
-		
+
 		-- Проверяем слоты экипировки
 		if slotName == "EquipSlot_PRIMARY" then
 			targetEquipSlot = "PRIMARY"
@@ -390,7 +390,7 @@ local function endDrag(targetSlot)
 			targetEquipSlot = "SECONDARY"
 		end
 	end
-	
+
 	-- Восстанавливаем исходный слот
 	if dragStartSlot then
 		dragStartSlot.BackgroundTransparency = 0.3
@@ -399,28 +399,28 @@ local function endDrag(targetSlot)
 			viewport.ImageTransparency = 0
 		end
 	end
-	
+
 	-- Удаляем ghost
 	if dragGhostFrame then
 		dragGhostFrame:Destroy()
 		dragGhostFrame = nil
 	end
-	
+
 	-- Если перетаскиваем ИЗ слота экипировки В другой слот экипировки
 	if dragStartEquipSlot and targetEquipSlot and dragStartEquipSlot ~= targetEquipSlot then
 		local sourceData = equippedSlotData[dragStartEquipSlot]
 		local targetData = equippedSlotData[targetEquipSlot]
-		
+
 		if sourceData then
 			-- Отправляем запрос на сервер
 			if equipItemEvent then
 				equipItemEvent:FireServer(dragStartEquipSlot, targetEquipSlot)
 			end
-			
+
 			-- Локально меняем местами
 			equippedSlotData[dragStartEquipSlot] = targetData
 			equippedSlotData[targetEquipSlot] = sourceData
-			
+
 			if dragStartSlot then
 				setSlotItem(dragStartSlot, targetData)
 			end
@@ -428,84 +428,84 @@ local function endDrag(targetSlot)
 				setSlotItem(targetSlot, sourceData)
 			end
 		end
-		
+
 		isDragging = false
 		dragStartSlot = nil
 		dragStartSlotIndex = nil
 		dragStartEquipSlot = nil
 		return
 	end
-	
+
 	-- Если перетаскиваем ИЗ слота экипировки В инвентарь
 	if dragStartEquipSlot and targetSlotIndex then
 		local sourceData = equippedSlotData[dragStartEquipSlot]
-		
+
 		if sourceData then
 			-- Отправляем запрос на сервер (снять экипировку)
 			if equipItemEvent then
 				equipItemEvent:FireServer(dragStartEquipSlot, targetSlotIndex)
 			end
-			
+
 			-- Локально обновляем
 			equippedSlotData[dragStartEquipSlot] = nil
 			if dragStartSlot then
 				setSlotItem(dragStartSlot, nil)
 			end
-			
+
 			-- Показываем в слоте инвентаря
 			inventorySlotData[targetSlotIndex] = sourceData
 			if targetSlot then
 				setSlotItem(targetSlot, sourceData)
 			end
 		end
-		
+
 		isDragging = false
 		dragStartSlot = nil
 		dragStartSlotIndex = nil
 		dragStartEquipSlot = nil
 		return
 	end
-	
+
 	-- Если перетаскиваем в слот экипировки ИЗ инвентаря
 	if targetEquipSlot and dragStartSlotIndex then
 		local sourceData = inventorySlotData[dragStartSlotIndex]
-		
+
 		-- Проверяем что это оружие
 		if sourceData and sourceData.itemType == "Weapon" then
 			-- Отправляем запрос на сервер
 			if equipItemEvent then
 				equipItemEvent:FireServer(dragStartSlotIndex, targetEquipSlot)
 			end
-			
+
 			-- Локально обновляем (убираем из инвентаря)
 			inventorySlotData[dragStartSlotIndex] = nil
 			if dragStartSlot then
 				setSlotItem(dragStartSlot, nil)
 			end
-			
+
 			-- Показываем в слоте экипировки
 			equippedSlotData[targetEquipSlot] = sourceData
 			if targetSlot then
 				setSlotItem(targetSlot, sourceData)
 			end
 		end
-		
+
 		isDragging = false
 		dragStartSlot = nil
 		dragStartSlotIndex = nil
 		dragStartEquipSlot = nil
 		return
 	end
-	
+
 	-- Если есть целевой слот инвентаря и он отличается от исходного (перемещение внутри инвентаря)
 	if targetSlotIndex and dragStartSlotIndex and targetSlotIndex ~= dragStartSlotIndex then
 		-- Глубокое копирование данных для локального обновления
 		local sourceData = inventorySlotData[dragStartSlotIndex]
 		local targetData = inventorySlotData[targetSlotIndex]
-		
+
 		local newSourceData = nil
 		local newTargetData = nil
-		
+
 		if targetData then
 			newSourceData = {
 				itemId = targetData.itemId,
@@ -520,7 +520,7 @@ local function endDrag(targetSlot)
 				defense = targetData.defense,
 			}
 		end
-		
+
 		if sourceData then
 			newTargetData = {
 				itemId = sourceData.itemId,
@@ -535,11 +535,11 @@ local function endDrag(targetSlot)
 				defense = sourceData.defense,
 			}
 		end
-		
+
 		-- Обновляем локальные данные
 		inventorySlotData[dragStartSlotIndex] = newSourceData
 		inventorySlotData[targetSlotIndex] = newTargetData
-		
+
 		-- Обновляем отображение
 		if dragStartSlot then
 			setSlotItem(dragStartSlot, newSourceData)
@@ -547,7 +547,7 @@ local function endDrag(targetSlot)
 		if targetSlot then
 			setSlotItem(targetSlot, newTargetData)
 		end
-		
+
 		-- Обновляем панель описания для выбранного слота
 		if currentSelectedSlot then
 			local selectedSlotName = currentSelectedSlot.Name
@@ -556,13 +556,13 @@ local function endDrag(targetSlot)
 				updateItemDescPanel(inventorySlotData[selectedSlotIndex])
 			end
 		end
-		
+
 		-- Отправляем запрос на сервер (после локального обновления)
 		if moveItemEvent then
 			moveItemEvent:FireServer(dragStartSlotIndex, targetSlotIndex)
 		end
 	end
-	
+
 	isDragging = false
 	dragStartSlot = nil
 	dragStartSlotIndex = nil
@@ -571,7 +571,7 @@ end
 
 local function cancelDrag()
 	if not isDragging then return end
-	
+
 	-- Восстанавливаем исходный слот
 	if dragStartSlot then
 		dragStartSlot.BackgroundTransparency = 0.3
@@ -580,13 +580,13 @@ local function cancelDrag()
 			viewport.ImageTransparency = 0
 		end
 	end
-	
+
 	-- Удаляем ghost
 	if dragGhostFrame then
 		dragGhostFrame:Destroy()
 		dragGhostFrame = nil
 	end
-	
+
 	isDragging = false
 	dragStartSlot = nil
 	dragStartSlotIndex = nil
@@ -721,7 +721,7 @@ local function createInventoryPart()
 	-- === ПАНЕЛЬ ОПИСАНИЯ ПРЕДМЕТА ===
 	local descPanel = createPanel(mainFrame, "ItemDescPanel", UDim2.new(0, 180, 0, 380), UDim2.new(0, 640, 0, 30), "ITEM INFO")
 	itemDescPanel = descPanel
-	
+
 	-- Название предмета
 	local itemNameLabel = Instance.new("TextLabel")
 	itemNameLabel.Name = "ItemName"
@@ -735,7 +735,7 @@ local function createInventoryPart()
 	itemNameLabel.TextXAlignment = Enum.TextXAlignment.Left
 	itemNameLabel.TextWrapped = true
 	itemNameLabel.Parent = descPanel
-	
+
 	-- Разделитель
 	local separator = Instance.new("Frame")
 	separator.Name = "Separator"
@@ -744,7 +744,7 @@ local function createInventoryPart()
 	separator.BackgroundColor3 = COLORS.BorderDim
 	separator.BorderSizePixel = 0
 	separator.Parent = descPanel
-	
+
 	-- Тип предмета
 	local itemTypeLabel = Instance.new("TextLabel")
 	itemTypeLabel.Name = "ItemType"
@@ -757,7 +757,7 @@ local function createInventoryPart()
 	itemTypeLabel.Font = Enum.Font.Gotham
 	itemTypeLabel.TextXAlignment = Enum.TextXAlignment.Left
 	itemTypeLabel.Parent = descPanel
-	
+
 	-- Описание предмета
 	local itemDescLabel = Instance.new("TextLabel")
 	itemDescLabel.Name = "ItemDesc"
@@ -772,7 +772,7 @@ local function createInventoryPart()
 	itemDescLabel.TextYAlignment = Enum.TextYAlignment.Top
 	itemDescLabel.TextWrapped = true
 	itemDescLabel.Parent = descPanel
-	
+
 	-- Статы предмета
 	local itemStatsLabel = Instance.new("TextLabel")
 	itemStatsLabel.Name = "ItemStats"
@@ -787,14 +787,14 @@ local function createInventoryPart()
 	itemStatsLabel.TextYAlignment = Enum.TextYAlignment.Top
 	itemStatsLabel.TextWrapped = true
 	itemStatsLabel.Parent = descPanel
-	
+
 	-- Подсказка "Hover over item"
 	local hintLabel = Instance.new("TextLabel")
 	hintLabel.Name = "HintLabel"
 	hintLabel.Size = UDim2.new(1, -20, 1, -70)
 	hintLabel.Position = UDim2.new(0, 10, 0, 40)
 	hintLabel.BackgroundTransparency = 1
-	hintLabel.Text = "Hover over an item\nto see details"
+	hintLabel.Text = "Click over an item\nto see details"
 	hintLabel.TextColor3 = COLORS.TextDim
 	hintLabel.TextSize = 12
 	hintLabel.Font = Enum.Font.Gotham
@@ -867,7 +867,7 @@ local function openInventory()
 				updateInventoryDisplay(slots)
 			end
 		end
-		
+
 		-- Запрашиваем экипировку
 		if getEquippedFunc then
 			local success, equipped = pcall(function()
@@ -944,7 +944,7 @@ local function openInventory()
 						end
 						currentHoveredSlot = foundSlot
 					end
-					
+
 					-- Обновляем позицию drag ghost
 					if isDragging then
 						updateDragGhostPosition()
@@ -1050,10 +1050,10 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 and inventoryOpen then
 		if currentHoveredSlot then
 			clickSound:Play()
-			
+
 			local slotName = currentHoveredSlot.Name
 			local slotIndex = tonumber(slotName:match("InventorySlot_(%d+)"))
-			
+
 			-- Проверяем слоты экипировки
 			local equipSlotType = nil
 			if slotName == "EquipSlot_PRIMARY" then
@@ -1061,24 +1061,24 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 			elseif slotName == "EquipSlot_SECONDARY" then
 				equipSlotType = "SECONDARY"
 			end
-			
+
 			-- Если в слоте инвентаря есть предмет - начинаем drag
 			if slotIndex and inventorySlotData[slotIndex] then
 				startDrag(currentHoveredSlot, slotIndex)
-			-- Если в слоте экипировки есть предмет - начинаем drag
+				-- Если в слоте экипировки есть предмет - начинаем drag
 			elseif equipSlotType and equippedSlotData[equipSlotType] then
 				startDragFromEquip(currentHoveredSlot, equipSlotType)
 			end
-			
+
 			-- Снимаем выделение с предыдущего слота
 			if currentSelectedSlot then
 				setSlotSelected(currentSelectedSlot, false)
 			end
-			
+
 			-- Выделяем новый слот
 			currentSelectedSlot = currentHoveredSlot
 			setSlotSelected(currentSelectedSlot, true)
-			
+
 			-- Обновляем панель описания
 			if slotIndex and inventorySlotData[slotIndex] then
 				updateItemDescPanel(inventorySlotData[slotIndex])
@@ -1090,8 +1090,8 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		end
 	end
 
-	-- T для открытия/закрытия
-	if input.KeyCode == Enum.KeyCode.T then
+	-- ` (Backquote) для открытия/закрытия
+	if input.KeyCode == Enum.KeyCode.Backquote then
 		-- Проверяем, не в диалоге ли игрок
 		local inDialogue = player:FindFirstChild("InDialogue")
 		if inDialogue and inDialogue.Value then
@@ -1126,14 +1126,14 @@ end)
 -- === ФУНКЦИЯ ОБНОВЛЕНИЯ ПАНЕЛИ ОПИСАНИЯ ===
 updateItemDescPanel = function(itemData)
 	if not itemDescPanel then return end
-	
+
 	local itemNameLabel = itemDescPanel:FindFirstChild("ItemName")
 	local itemTypeLabel = itemDescPanel:FindFirstChild("ItemType")
 	local itemDescLabel = itemDescPanel:FindFirstChild("ItemDesc")
 	local itemStatsLabel = itemDescPanel:FindFirstChild("ItemStats")
 	local hintLabel = itemDescPanel:FindFirstChild("HintLabel")
 	local separator = itemDescPanel:FindFirstChild("Separator")
-	
+
 	if not itemData then
 		-- Показываем подсказку, скрываем остальное
 		if hintLabel then hintLabel.Visible = true end
@@ -1144,26 +1144,26 @@ updateItemDescPanel = function(itemData)
 		if separator then separator.Visible = false end
 		return
 	end
-	
+
 	-- Скрываем подсказку, показываем информацию
 	if hintLabel then hintLabel.Visible = false end
 	if separator then separator.Visible = true end
-	
+
 	-- Название
 	if itemNameLabel then
 		itemNameLabel.Text = itemData.displayName or itemData.itemId or "Unknown Item"
 	end
-	
+
 	-- Тип
 	if itemTypeLabel then
 		itemTypeLabel.Text = itemData.itemType or "Misc"
 	end
-	
+
 	-- Описание
 	if itemDescLabel then
 		itemDescLabel.Text = itemData.description or "No description available."
 	end
-	
+
 	-- Статы
 	if itemStatsLabel then
 		local statsText = ""
@@ -1349,7 +1349,7 @@ updateInventoryDisplay = function(slots)
 			setSlotItem(slot, itemData)
 		end
 	end
-	
+
 	-- Обновляем панель описания для выбранного слота
 	if currentSelectedSlot then
 		local selectedSlotName = currentSelectedSlot.Name
@@ -1429,7 +1429,7 @@ local function setupInventoryListener()
 	inventoryChangedEvent.Event:Connect(function(slots)
 		updateInventoryDisplay(slots)
 	end)
-	
+
 	-- Слушаем обновления с сервера через RemoteEvent
 	local inventoryUpdateEvent = remoteFolder and remoteFolder:FindFirstChild("InventoryUpdate")
 	if inventoryUpdateEvent then
@@ -1437,7 +1437,7 @@ local function setupInventoryListener()
 			updateInventoryDisplay(slots)
 		end)
 	end
-	
+
 	-- Слушаем обновления экипировки с сервера
 	if equipItemEvent then
 		equipItemEvent.OnClientEvent:Connect(function(equipped)

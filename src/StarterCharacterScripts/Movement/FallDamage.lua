@@ -60,6 +60,8 @@ local isFalling = false
 local fallStartHeight = 0
 local lastFloorMaterial = humanoid.FloorMaterial
 local isDead = false  -- Флаг смерти для предотвращения повторного урона
+local lastLandingTime = 0  -- Время последнего приземления для предотвращения двойной обработки
+local LANDING_COOLDOWN = 0.3  -- Кулдаун между обработками приземления
 
 -- Флаг для блокировки бега во время тяжёлого приземления
 local isHardLandingValue = player:FindFirstChild("IsHardLanding") or Instance.new("BoolValue")
@@ -113,23 +115,48 @@ softLandingSound.Parent = rootPart
 -- === ТРЯСКА КАМЕРЫ (напрямую через Camera.CFrame) ===
 local camera = workspace.CurrentCamera
 local isShaking = false
+local currentShakeConnection = nil
+local lastShakeTime = 0
+local SHAKE_COOLDOWN = 0.5 -- Минимальное время между тряскамиs
+
+local function stopCameraShake()
+	if currentShakeConnection then
+		currentShakeConnection:Disconnect()
+		currentShakeConnection = nil
+	end
+	isShaking = false
+end
 
 local function shakeCamera(intensity, duration)
-	if isShaking then return end
+	-- Защита от слишком частых вызовов
+	local now = tick()
+	if now - lastShakeTime < SHAKE_COOLDOWN and isShaking then
+		return
+	end
+	lastShakeTime = now
+	
+	-- Останавливаем предыдущую тряску
+	stopCameraShake()
+	
 	isShaking = true
 	
 	print("FallDamage: Starting camera shake, intensity =", intensity, "duration =", duration)
 	
 	local startTime = tick()
+	local shakeId = startTime -- Уникальный ID для этой тряски
 	
 	-- Используем RenderStepped для тряски камеры напрямую
-	local shakeConnection
-	shakeConnection = game:GetService("RunService").RenderStepped:Connect(function()
+	currentShakeConnection = RunService.RenderStepped:Connect(function()
+		-- Проверяем что это всё ещё наша тряска
+		if not isShaking then
+			stopCameraShake()
+			return
+		end
+		
 		local elapsed = tick() - startTime
 		
 		if elapsed >= duration then
-			shakeConnection:Disconnect()
-			isShaking = false
+			stopCameraShake()
 			print("FallDamage: Camera shake ended")
 			return
 		end
@@ -146,6 +173,14 @@ local function shakeCamera(intensity, duration)
 			math.rad(shakeX * 2),
 			math.rad(shakeX)
 		)
+	end)
+	
+	-- Гарантированная остановка через duration + небольшой запас
+	task.delay(duration + 0.1, function()
+		if isShaking and tick() - startTime >= duration then
+			stopCameraShake()
+			print("FallDamage: Camera shake force stopped")
+		end
 	end)
 end
 
@@ -221,6 +256,15 @@ local function onFloorMaterialChanged()
 	-- Приземление (был в воздухе, теперь на земле)
 	if lastFloorMaterial == Enum.Material.Air and currentFloor ~= Enum.Material.Air then
 		if isFalling then
+			-- Проверяем кулдаун чтобы избежать двойной обработки
+			local now = tick()
+			if now - lastLandingTime < LANDING_COOLDOWN then
+				isFalling = false
+				lastFloorMaterial = currentFloor
+				return
+			end
+			lastLandingTime = now
+			
 			local fallEndHeight = rootPart.Position.Y
 			local fallDistance = fallStartHeight - fallEndHeight
 
@@ -333,6 +377,14 @@ humanoid.StateChanged:Connect(function(oldState, newState)
 	elseif newState == Enum.HumanoidStateType.Landed then
 		-- Дополнительная проверка при приземлении
 		if isFalling then
+			-- Проверяем кулдаун чтобы избежать двойной обработки
+			local now = tick()
+			if now - lastLandingTime < LANDING_COOLDOWN then
+				isFalling = false
+				return
+			end
+			lastLandingTime = now
+			
 			local fallEndHeight = rootPart.Position.Y
 			local fallDistance = fallStartHeight - fallEndHeight
 

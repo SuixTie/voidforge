@@ -17,6 +17,7 @@ local playerGui = player:WaitForChild("PlayerGui")
 -- === СКРЫВАЕМ СТАНДАРТНЫЙ UI ROBLOX ===
 StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Health, false)
 StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, false)
+StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, false) -- Отключаем стандартный инвентарь
 
 -- Подключаем Screen3D
 local Screen3D = require(ReplicatedStorage:WaitForChild("Screen3D"))
