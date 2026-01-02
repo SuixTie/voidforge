@@ -324,9 +324,11 @@ local function getBlockParryAnims()
 
 	if hasWeapon and weaponData then
 		local weaponName = weaponData.itemId or weaponData.modelName
-		if loadedAnimations.Weapons[weaponName] then
+		if weaponName and loadedAnimations.Weapons[weaponName] then
 			local weaponAnims = loadedAnimations.Weapons[weaponName]
-			return weaponAnims.Block or fistBlockAnim, weaponAnims.Parry or fistParryAnim
+			local blockAnim = weaponAnims.Block or fistBlockAnim
+			local parryAnim = weaponAnims.Parry or fistParryAnim
+			return blockAnim, parryAnim
 		end
 	end
 
@@ -390,173 +392,73 @@ local function canAffordStamina(cost)
 end
 
 -- === VFX ПОПАДАНИЯ ===
-local function createHitEffect(position, attackType)
-	local isHeavy = attackType == "Heavy"
+-- Папка с эффектами
+local FxFolder = ReplicatedStorage:FindFirstChild("Fx")
 
-	-- Основной контейнер эффекта
-	local effect = Instance.new("Part")
-	effect.Name = "HitEffect"
-	effect.Size = Vector3.new(0.5, 0.5, 0.5)
-	effect.Position = position
-	effect.Anchored = true
-	effect.CanCollide = false
-	effect.Transparency = 1
-	effect.Parent = workspace
-
-	-- 1. Основные частицы удара (искры/брызги)
-	local impactParticles = Instance.new("ParticleEmitter")
-	impactParticles.Name = "ImpactParticles"
-	impactParticles.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 200, 150)),
-		ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 100, 50)),
-		ColorSequenceKeypoint.new(1, Color3.fromRGB(150, 50, 50)),
-	})
-	impactParticles.Size = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, isHeavy and 0.5 or 0.3),
-		NumberSequenceKeypoint.new(0.3, isHeavy and 0.3 or 0.2),
-		NumberSequenceKeypoint.new(1, 0),
-	})
-	impactParticles.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0),
-		NumberSequenceKeypoint.new(0.5, 0.3),
-		NumberSequenceKeypoint.new(1, 1),
-	})
-	impactParticles.Lifetime = NumberRange.new(0.2, 0.5)
-	impactParticles.Speed = NumberRange.new(isHeavy and 15 or 8, isHeavy and 30 or 18)
-	impactParticles.SpreadAngle = Vector2.new(180, 180)
-	impactParticles.Acceleration = Vector3.new(0, -30, 0) -- Гравитация
-	impactParticles.Drag = 3
-	impactParticles.Rate = 0
-	impactParticles.LightEmission = 0.4
-	impactParticles.LightInfluence = 0.3
-	impactParticles.Parent = effect
-	impactParticles:Emit(isHeavy and 25 or 15)
-
-	-- 2. Кровь/тёмные частицы
-	local bloodParticles = Instance.new("ParticleEmitter")
-	bloodParticles.Name = "BloodParticles"
-	bloodParticles.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, Color3.fromRGB(180, 30, 30)),
-		ColorSequenceKeypoint.new(1, Color3.fromRGB(80, 10, 10)),
-	})
-	bloodParticles.Size = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, isHeavy and 0.25 or 0.15),
-		NumberSequenceKeypoint.new(1, 0.05),
-	})
-	bloodParticles.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.2),
-		NumberSequenceKeypoint.new(0.7, 0.5),
-		NumberSequenceKeypoint.new(1, 1),
-	})
-	bloodParticles.Lifetime = NumberRange.new(0.3, 0.7)
-	bloodParticles.Speed = NumberRange.new(5, 15)
-	bloodParticles.SpreadAngle = Vector2.new(120, 120)
-	bloodParticles.Acceleration = Vector3.new(0, -50, 0)
-	bloodParticles.Drag = 2
-	bloodParticles.Rate = 0
-	bloodParticles.Parent = effect
-	bloodParticles:Emit(isHeavy and 20 or 10)
-
-	-- 3. Вспышка света при ударе
-	local flashPart = Instance.new("Part")
-	flashPart.Name = "HitFlash"
-	flashPart.Size = Vector3.new(0.1, 0.1, 0.1)
-	flashPart.Position = position
-	flashPart.Anchored = true
-	flashPart.CanCollide = false
-	flashPart.Transparency = 1
-	flashPart.Parent = workspace
-
-	local pointLight = Instance.new("PointLight")
-	pointLight.Color = Color3.fromRGB(255, 150, 100)
-	pointLight.Brightness = isHeavy and 3 or 2
-	pointLight.Range = isHeavy and 8 or 5
-	pointLight.Parent = flashPart
-
-	-- Затухание света
-	task.spawn(function()
-		for i = 1, 10 do
-			task.wait(0.02)
-			pointLight.Brightness = pointLight.Brightness * 0.7
-		end
-		flashPart:Destroy()
-	end)
-
-	-- 4. Ударная волна (кольцо)
-	local shockwave = Instance.new("Part")
-	shockwave.Name = "Shockwave"
-	shockwave.Shape = Enum.PartType.Cylinder
-	shockwave.Size = Vector3.new(0.1, isHeavy and 2 or 1.5, isHeavy and 2 or 1.5)
-	shockwave.CFrame = CFrame.new(position) * CFrame.Angles(0, 0, math.rad(90))
-	shockwave.Anchored = true
-	shockwave.CanCollide = false
-	shockwave.Material = Enum.Material.Neon
-	shockwave.Color = Color3.fromRGB(255, 200, 150)
-	shockwave.Transparency = 0.5
-	shockwave.Parent = workspace
-
-	-- Анимация расширения ударной волны
-	task.spawn(function()
-		local startSize = shockwave.Size
-		local endSize = Vector3.new(0.05, isHeavy and 6 or 4, isHeavy and 6 or 4)
-		for i = 1, 15 do
-			local alpha = i / 15
-			shockwave.Size = startSize:Lerp(endSize, alpha)
-			shockwave.Transparency = 0.5 + (alpha * 0.5)
-			task.wait(0.015)
-		end
-		shockwave:Destroy()
-	end)
-
-	-- 5. Дымка после удара
-	local smokeParticles = Instance.new("ParticleEmitter")
-	smokeParticles.Name = "SmokeParticles"
-	smokeParticles.Color = ColorSequence.new(Color3.fromRGB(80, 80, 80))
-	smokeParticles.Size = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.3),
-		NumberSequenceKeypoint.new(0.5, isHeavy and 1 or 0.6),
-		NumberSequenceKeypoint.new(1, 0),
-	})
-	smokeParticles.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.7),
-		NumberSequenceKeypoint.new(0.5, 0.85),
-		NumberSequenceKeypoint.new(1, 1),
-	})
-	smokeParticles.Lifetime = NumberRange.new(0.4, 0.8)
-	smokeParticles.Speed = NumberRange.new(1, 3)
-	smokeParticles.SpreadAngle = Vector2.new(360, 360)
-	smokeParticles.Rotation = NumberRange.new(0, 360)
-	smokeParticles.RotSpeed = NumberRange.new(-100, 100)
-	smokeParticles.Rate = 0
-	smokeParticles.Parent = effect
-	smokeParticles:Emit(isHeavy and 8 or 4)
-
-	-- 6. Линии удара (speed lines эффект)
-	for i = 1, (isHeavy and 6 or 3) do
-		local line = Instance.new("Part")
-		line.Name = "HitLine"
-		line.Size = Vector3.new(0.05, 0.05, math.random(10, 20) / 10)
-		local angle = math.rad(math.random(0, 360))
-		local offset = Vector3.new(math.cos(angle), math.random(-5, 5) / 10, math.sin(angle)) * 0.5
-		line.CFrame = CFrame.lookAt(position + offset, position + offset * 2)
-		line.Anchored = true
-		line.CanCollide = false
-		line.Material = Enum.Material.Neon
-		line.Color = Color3.fromRGB(255, 220, 180)
-		line.Transparency = 0.3
-		line.Parent = workspace
-
-		task.spawn(function()
-			for j = 1, 8 do
-				task.wait(0.02)
-				line.Transparency = 0.3 + (j / 8) * 0.7
-				line.Size = line.Size * 0.9
-			end
-			line:Destroy()
-		end)
+local function createHitEffect(hitPart, attackType, attackIndex, hasWeapon)
+	-- hitPart - часть тела, в которую попал удар
+	
+	if not FxFolder then
+		warn("CombatSystem: Fx folder not found in ReplicatedStorage")
+		return
 	end
-
-	Debris:AddItem(effect, 1.5)
+	
+	if not hitPart then return end
+	
+	local effectName
+	local effectIndex = attackIndex or 1
+	
+	if hasWeapon then
+		-- Для меча пробуем найти Slash эффекты, если нет - используем Punch
+		effectName = string.format("Slash-%02d", effectIndex)
+		if not FxFolder:FindFirstChild(effectName) then
+			effectName = string.format("Punch-%02d", effectIndex)
+		end
+	else
+		-- Для кулаков используем Punch эффекты
+		effectName = string.format("Punch-%02d", effectIndex)
+	end
+	
+	local effectTemplate = FxFolder:FindFirstChild(effectName)
+	if not effectTemplate then
+		-- Пробуем найти Punch-01 как fallback
+		effectTemplate = FxFolder:FindFirstChild("Punch-01")
+		if not effectTemplate then
+			warn("CombatSystem: Effect not found:", effectName)
+			return
+		end
+	end
+	
+	-- Клонируем эффект и прикрепляем к части тела
+	local effectClone = effectTemplate:Clone()
+	effectClone.Transparency = 1 -- Скрываем сам парт
+	effectClone.CanCollide = false
+	effectClone.Massless = true
+	effectClone.Anchored = false
+	
+	-- Создаём Weld для прикрепления к части тела
+	local weld = Instance.new("Weld")
+	weld.Part0 = hitPart
+	weld.Part1 = effectClone
+	weld.C0 = CFrame.new(0, 0, 0) -- По центру части
+	weld.Parent = effectClone
+	
+	effectClone.Parent = hitPart.Parent -- Помещаем в модель персонажа
+	
+	-- Находим все ParticleEmitter внутри и запускаем их ОДИН раз
+	for _, child in ipairs(effectClone:GetDescendants()) do
+		if child:IsA("ParticleEmitter") then
+			-- Отключаем автоматическую эмиссию
+			child.Enabled = false
+			child.Rate = 0
+			-- Запускаем частицы один раз
+			local emitCount = child:GetAttribute("EmitCount") or 15
+			child:Emit(emitCount)
+		end
+	end
+	
+	-- Удаляем эффект через некоторое время
+	Debris:AddItem(effectClone, 2)
 end
 
 -- === VFX СВИНГА (СЛЕД ОТ УДАРА) ===
@@ -893,13 +795,14 @@ end
 
 
 -- === HITBOX СИСТЕМА ===
-local function createHitbox(range, damage, knockback, attackType, hasWeapon)
+local function createHitbox(range, damage, knockback, attackType, hasWeapon, attackIndex)
 	local hitTargets = {}
 	local hitEnemy = false
 
 	-- Позиция и размер хитбокса
 	local hitboxCFrame = rootPart.CFrame * CFrame.new(0, 0, -range/2)
 	local hitboxSize = Vector3.new(range, 4, range)
+	local hitboxCenter = hitboxCFrame.Position
 
 	-- Параметры для поиска
 	local overlapParams = OverlapParams.new()
@@ -908,52 +811,67 @@ local function createHitbox(range, damage, knockback, attackType, hasWeapon)
 
 	local parts = workspace:GetPartBoundsInBox(hitboxCFrame, hitboxSize, overlapParams)
 
+	-- Группируем части по персонажам и находим ближайшую часть для каждого
+	local targetPartsMap = {} -- {targetChar = {parts = {}, closestPart = nil, closestDist = math.huge}}
+	
 	for _, part in ipairs(parts) do
 		local targetChar = part.Parent
-		if targetChar and targetChar:FindFirstChild("Humanoid") and not hitTargets[targetChar] then
+		if targetChar and targetChar:FindFirstChild("Humanoid") then
 			-- Пропускаем неуязвимых NPC (диалоговые NPC)
 			if CollectionService:HasTag(targetChar, "InvulnerableNPC") or CollectionService:HasTag(targetChar, "DialogueNPC") then
 				continue
 			end
-
-			local targetHumanoid = targetChar:FindFirstChild("Humanoid")
-			local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
-
-			if targetHumanoid and targetHumanoid.Health > 0 then
-				hitTargets[targetChar] = true
-				hitEnemy = true
-
-				local knockbackDir = Vector3.new(0, 0, 0)
-				if targetRoot then
-					knockbackDir = (targetRoot.Position - rootPart.Position).Unit
-				end
-
-				if damageEvent then
-					damageEvent:FireServer(targetChar, damage, knockbackDir, knockback or 10)
-				end
-
-				-- Звук попадания по врагу
-				playHitSound(attackType, nil)
-
-				shakeCamera(0.3, 0.15)
-
-				createHitEffect(part.Position, attackType)
-				
-				-- Всплывающий урон
-				local isCritical = attackType == "Heavy" and damage >= 30
-				createDamageLabel(part.Position, damage, isCritical)
-
-				if attackType == "Heavy" and CombatVFX then
-					CombatVFX:CreateCriticalHitEffect(part.Position)
-				end
-
-				if comboCount == 4 and CombatVFX then
-					CombatVFX:CreateComboFinisherEffect(part.Position)
-				end
-
-				-- Оповещаем о попадании
-				combatEvent:Fire("hit", targetChar, damage)
+			
+			if not targetPartsMap[targetChar] then
+				targetPartsMap[targetChar] = {parts = {}, closestPart = nil, closestDist = math.huge}
 			end
+			
+			table.insert(targetPartsMap[targetChar].parts, part)
+			
+			-- Вычисляем расстояние от центра хитбокса до части
+			local dist = (part.Position - hitboxCenter).Magnitude
+			if dist < targetPartsMap[targetChar].closestDist then
+				targetPartsMap[targetChar].closestDist = dist
+				targetPartsMap[targetChar].closestPart = part
+			end
+		end
+	end
+
+	-- Обрабатываем каждого персонажа
+	for targetChar, data in pairs(targetPartsMap) do
+		if hitTargets[targetChar] then continue end
+		
+		local targetHumanoid = targetChar:FindFirstChild("Humanoid")
+		local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+
+		if targetHumanoid and targetHumanoid.Health > 0 then
+			hitTargets[targetChar] = true
+			hitEnemy = true
+
+			local knockbackDir = Vector3.new(0, 0, 0)
+			if targetRoot then
+				knockbackDir = (targetRoot.Position - rootPart.Position).Unit
+			end
+
+			if damageEvent then
+				damageEvent:FireServer(targetChar, damage, knockbackDir, knockback or 10)
+			end
+
+			-- Звук попадания по врагу (с учётом оружия)
+			playHitSound(attackType, nil, hasWeapon)
+
+			shakeCamera(0.3, 0.15)
+
+			-- VFX попадания - используем ближайшую часть к центру хитбокса
+			local hitPart = data.closestPart
+			createHitEffect(hitPart, attackType, attackIndex, hasWeapon)
+			
+			-- Всплывающий урон
+			local isCritical = attackType == "Heavy" and damage >= 30
+			createDamageLabel(hitPart.Position, damage, isCritical)
+
+			-- Оповещаем о попадании
+			combatEvent:Fire("hit", targetChar, damage)
 		end
 	end
 
@@ -1135,6 +1053,7 @@ local function performAttack(attackType)
 	Debris:AddItem(dashForce, 0.1)
 
 	-- Хитбокс с задержкой (момент удара)
+	local currentAttackIndex = attackIndex -- Сохраняем для использования в task.delay
 	task.delay(attackData.hitTime, function()
 		if isAttacking then
 			local damage = attackData.damage
@@ -1147,7 +1066,7 @@ local function performAttack(attackType)
 				knockback = knockback * 1.3
 			end
 
-			local didHit = createHitbox(attackData.range, damage, knockback, attackType, hasWeapon)
+			local didHit = createHitbox(attackData.range, damage, knockback, attackType, hasWeapon, currentAttackIndex)
 
 			if didHit then
 				-- Сильная тряска при попадании
@@ -1215,7 +1134,9 @@ local function startBlock()
 	currentBlockTrack, currentParryTrack = getBlockParryAnims()
 
 	-- Анимация блока
-	blockTrack:Play(0.15)
+	if currentBlockTrack then
+		currentBlockTrack:Play(0.15)
+	end
 
 	-- Звук блока (разный для кулаков и меча)
 	local hasWeapon = hasWeaponInHand()
@@ -1237,7 +1158,9 @@ local function stopBlock()
 	blockingValue.Value = false
 
 	-- Останавливаем анимацию блока
-	blockTrack:Stop(0.2)
+	if currentBlockTrack then
+		currentBlockTrack:Stop(0.2)
+	end
 
 	if blockShield then
 		blockShield:Destroy()
@@ -1278,8 +1201,10 @@ local function attemptParry()
 	currentBlockTrack, currentParryTrack = getBlockParryAnims()
 
 	-- Анимация парирования
-	currentParryTrack:Play(0.05)
-	currentParryTrack:AdjustSpeed(1.5) -- Быстрое парирование
+	if currentParryTrack then
+		currentParryTrack:Play(0.05)
+		currentParryTrack:AdjustSpeed(1.5) -- Быстрое парирование
+	end
 
 	-- Звук парирования (разный для кулаков и меча)
 	local hasWeapon = hasWeaponInHand()
@@ -1297,7 +1222,9 @@ local function attemptParry()
 
 	-- Остановка анимации и кулдаун
 	task.delay(0.3, function()
-		currentParryTrack:Stop(0.15)
+		if currentParryTrack then
+			currentParryTrack:Stop(0.15)
+		end
 	end)
 
 	-- Кулдаун

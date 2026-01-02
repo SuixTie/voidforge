@@ -41,9 +41,9 @@ CombatConfig.WeaponAttacks = {
 			{name = "Slash4", damage = 30, staminaCost = 14, duration = 0.65, range = 7, hitTime = 0.22},
 		},
 		Heavy = {
-			{name = "HeavySlash1", damage = 40, staminaCost = 22, duration = 0.9, range = 7, hitTime = 0.28},
-			{name = "HeavySlash2", damage = 50, staminaCost = 26, duration = 1.0, range = 7.5, hitTime = 0.32},
-			{name = "HeavySlash3", damage = 65, staminaCost = 32, duration = 1.2, range = 8, hitTime = 0.38},
+			{name = "HeavySlash1", damage = 40, staminaCost = 22, duration = 0.9, range = 7, hitTime = 0.08},
+			{name = "HeavySlash2", damage = 50, staminaCost = 26, duration = 1.0, range = 7.5, hitTime = 0.1},
+			{name = "HeavySlash3", damage = 65, staminaCost = 32, duration = 1.2, range = 8, hitTime = 0.15},
 		},
 		-- Анимации для меча (R6)
 		Animations = {
@@ -58,8 +58,8 @@ CombatConfig.WeaponAttacks = {
 				"rbxassetid://134962871921879", -- Heavy Slash 2
 				"rbxassetid://134962871921879", -- Heavy Slash 3
 			},
-			Block = "rbxassetid://140159702498498", -- Блок мечом (меч перед собой)
-			Parry = "rbxassetid://140159702498498", -- Парирование мечом (быстрый отбив)
+			Block = "rbxassetid://121454684276110", -- Блок мечом (меч перед собой)
+			Parry = "rbxassetid://121913695047313", -- Парирование мечом (быстрый отбив)
 		},
 	},
 }
