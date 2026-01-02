@@ -31,6 +31,117 @@ local CombatConfig = require(game.ReplicatedStorage.CombatConfig)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local damageEvent = ReplicatedStorage:WaitForChild("DamageEvent", 10)
 
+-- RemoteEvent для получения информации об активном оружии
+local remoteFolder = ReplicatedStorage:WaitForChild("Remotes", 10)
+local switchWeaponEvent = remoteFolder and remoteFolder:WaitForChild("SwitchWeapon", 10)
+local getEquippedFunc = remoteFolder and remoteFolder:WaitForChild("GetEquipped", 10)
+local getActiveWeaponFunc = remoteFolder and remoteFolder:WaitForChild("GetActiveWeapon", 10)
+local equipItemEvent = remoteFolder and remoteFolder:WaitForChild("EquipItem", 10)
+
+-- === СИСТЕМА ОРУЖИЯ ===
+local activeWeaponSlot = nil -- "PRIMARY", "SECONDARY" или nil (кулаки)
+local equippedWeapons = {} -- {PRIMARY = itemData, SECONDARY = itemData}
+
+-- Функция проверки есть ли оружие в руках (проверяем визуально на персонаже)
+local function hasWeaponInHand()
+	-- Проверяем есть ли экипированное оружие на персонаже в руке
+	local equippedPrimary = character:FindFirstChild("Equipped_PRIMARY")
+	local equippedSecondary = character:FindFirstChild("Equipped_SECONDARY")
+	
+	-- Проверяем прикреплено ли оружие к руке (IN_HAND позиция)
+	if equippedPrimary then
+		local weld = equippedPrimary:FindFirstChildWhichIsA("Weld", true)
+		if weld and weld.Part0 and weld.Part0.Name == "Right Arm" then
+			return true, equippedPrimary, "PRIMARY"
+		end
+	end
+	
+	if equippedSecondary then
+		local weld = equippedSecondary:FindFirstChildWhichIsA("Weld", true)
+		if weld and weld.Part0 and weld.Part0.Name == "Right Arm" then
+			return true, equippedSecondary, "SECONDARY"
+		end
+	end
+	
+	-- Также проверяем через activeWeaponSlot
+	if activeWeaponSlot and equippedWeapons[activeWeaponSlot] then
+		return true, nil, activeWeaponSlot
+	end
+	
+	return false, nil, nil
+end
+
+-- Функция получения данных активного оружия
+local function getActiveWeaponData()
+	local hasWeapon, weaponModel, slot = hasWeaponInHand()
+	if not hasWeapon then return nil end
+	
+	if slot and equippedWeapons[slot] then
+		return equippedWeapons[slot]
+	end
+	
+	return nil
+end
+
+-- Получаем начальное состояние экипировки и активного оружия
+task.spawn(function()
+	task.wait(1) -- Ждём загрузки
+	
+	-- Получаем экипировку
+	if getEquippedFunc then
+		local success, result = pcall(function()
+			return getEquippedFunc:InvokeServer()
+		end)
+		if success and result then
+			equippedWeapons = result
+			print("CombatSystem: Initial equipment loaded:", equippedWeapons.PRIMARY and "PRIMARY" or "none", equippedWeapons.SECONDARY and "SECONDARY" or "none")
+		end
+	end
+	
+	-- Получаем активное оружие
+	if getActiveWeaponFunc then
+		local success, result = pcall(function()
+			return getActiveWeaponFunc:InvokeServer()
+		end)
+		if success then
+			activeWeaponSlot = result
+			print("CombatSystem: Initial active weapon:", activeWeaponSlot or "none (fists)")
+		end
+	end
+end)
+
+-- Слушаем обновления активного оружия
+if switchWeaponEvent then
+	switchWeaponEvent.OnClientEvent:Connect(function(newActiveSlot)
+		activeWeaponSlot = newActiveSlot
+		print("CombatSystem: Active weapon slot changed to", activeWeaponSlot or "none (fists)")
+	end)
+else
+	warn("CombatSystem: SwitchWeapon event not found!")
+end
+
+-- Слушаем обновления экипировки
+if equipItemEvent then
+	equipItemEvent.OnClientEvent:Connect(function(newEquipped)
+		equippedWeapons = newEquipped or {}
+		print("CombatSystem: Equipment updated - PRIMARY:", equippedWeapons.PRIMARY and equippedWeapons.PRIMARY.itemId or "none", "SECONDARY:", equippedWeapons.SECONDARY and equippedWeapons.SECONDARY.itemId or "none")
+		
+		-- Проверяем есть ли оружие в активном слоте
+		if activeWeaponSlot and not equippedWeapons[activeWeaponSlot] then
+			-- Оружие убрали - переключаемся на другое или на кулаки
+			if equippedWeapons.PRIMARY then
+				activeWeaponSlot = "PRIMARY"
+			elseif equippedWeapons.SECONDARY then
+				activeWeaponSlot = "SECONDARY"
+			else
+				activeWeaponSlot = nil
+			end
+		end
+	end)
+else
+	warn("CombatSystem: EquipItem event not found!")
+end
+
 -- Подключаем конфиги для проверки состояний
 local RunConfig = nil
 local LedgeGrabConfig = nil
@@ -85,14 +196,26 @@ end
 local swingSound = createSound(rootPart, "rbxassetid://8907343824", 0.4)
 local heavySwingSound = createSound(rootPart, "rbxassetid://9076453292", 0.5)
 
--- Звуки попадания по врагам
+-- Звуки свинга меча
+local swordSwingSound = createSound(rootPart, "rbxassetid://12222208", 0.5) -- Свист меча
+local swordHeavySwingSound = createSound(rootPart, "rbxassetid://12222216", 0.6) -- Тяжёлый свист меча
+
+-- Звуки попадания по врагам (кулаки)
 local lightHitSound = createSound(rootPart, "rbxassetid://3932505023", 0.5) -- Лёгкий удар по телу
 local heavyHitSound = createSound(rootPart, "rbxassetid://4306980885", 0.6) -- Тяжёлый удар по телу
+
+-- Звуки попадания меча по врагам
+local swordLightHitSound = createSound(rootPart, "rbxassetid://220833967", 0.5) -- Лёгкий удар мечом
+local swordHeavyHitSound = createSound(rootPart, "rbxassetid://220833976", 0.6) -- Тяжёлый удар мечом
 
 -- Звуки попадания по стенам/объектам
 local wallHitSound = createSound(rootPart, "rbxassetid://1476374050", 0.4) -- Удар по камню/бетону
 local metalHitSound = createSound(rootPart, "rbxassetid://108682776074559", 0.4) -- Удар по металлу
 local woodHitSound = createSound(rootPart, "rbxassetid://9120917813", 0.4) -- Удар по дереву
+
+-- Звуки попадания меча по стенам
+local swordMetalHitSound = createSound(rootPart, "rbxassetid://130959691052925", 0.5) -- Меч по металлу
+local swordStoneHitSound = createSound(rootPart, "rbxassetid://130959691052925", 0.4) -- Меч по камню
 
 local parrySound = createSound(rootPart, "rbxassetid://110940207848321", 0.7)
 local blockSound = createSound(rootPart, "rbxassetid://4549835866", 0.5)
@@ -104,28 +227,57 @@ local function loadAnimation(animId)
 	return animator:LoadAnimation(anim)
 end
 
--- Базовые анимации атак для R6 - Лёгкие атаки
-local lightAttackAnims = {
-	loadAnimation("rbxassetid://137575236164710"), -- Light Punch 1
-	loadAnimation("rbxassetid://121638502161356"), -- Light Punch 2
-	loadAnimation("rbxassetid://129891425687355"), -- Light Punch 3
-	loadAnimation("rbxassetid://95780408707133"), -- Light Punch 4
-}
-
--- Тяжёлые атаки
-local heavyAttackAnims = {
-	loadAnimation("rbxassetid://139627771045628"), -- Heavy Punch 1
-	loadAnimation("rbxassetid://106072166770452"), -- Heavy Punch 2
-	loadAnimation("rbxassetid://124496557087153"), -- Heavy Punch 3
-}
-
-for _, track in ipairs(lightAttackAnims) do
-	track.Priority = Enum.AnimationPriority.Action2
+-- Загружаем анимации из CombatConfig
+local function loadAnimationsFromConfig()
+	local anims = {
+		Fist = {Light = {}, Heavy = {}},
+		Weapons = {}
+	}
+	
+	-- Загружаем анимации кулаков
+	for i, animId in ipairs(CombatConfig.FistAnimations.Light) do
+		local track = loadAnimation(animId)
+		track.Priority = Enum.AnimationPriority.Action2
+		anims.Fist.Light[i] = track
+	end
+	
+	for i, animId in ipairs(CombatConfig.FistAnimations.Heavy) do
+		local track = loadAnimation(animId)
+		track.Priority = Enum.AnimationPriority.Action2
+		anims.Fist.Heavy[i] = track
+	end
+	
+	-- Загружаем анимации оружия
+	for weaponName, weaponData in pairs(CombatConfig.WeaponAttacks) do
+		if weaponData.Animations then
+			anims.Weapons[weaponName] = {Light = {}, Heavy = {}}
+			
+			if weaponData.Animations.Light then
+				for i, animId in ipairs(weaponData.Animations.Light) do
+					local track = loadAnimation(animId)
+					track.Priority = Enum.AnimationPriority.Action2
+					anims.Weapons[weaponName].Light[i] = track
+				end
+			end
+			
+			if weaponData.Animations.Heavy then
+				for i, animId in ipairs(weaponData.Animations.Heavy) do
+					local track = loadAnimation(animId)
+					track.Priority = Enum.AnimationPriority.Action2
+					anims.Weapons[weaponName].Heavy[i] = track
+				end
+			end
+		end
+	end
+	
+	return anims
 end
 
-for _, track in ipairs(heavyAttackAnims) do
-	track.Priority = Enum.AnimationPriority.Action2
-end
+local loadedAnimations = loadAnimationsFromConfig()
+
+-- Для обратной совместимости
+local lightAttackAnims = loadedAnimations.Fist.Light
+local heavyAttackAnims = loadedAnimations.Fist.Heavy
 
 -- Анимация блока
 local blockAnim = loadAnimation("rbxassetid://73242144324267") -- Блок (руки перед собой)
@@ -365,7 +517,10 @@ local function createHitEffect(position, attackType)
 end
 
 -- === VFX СВИНГА (СЛЕД ОТ УДАРА) ===
-local function createSwingEffect(attackType, attackIndex)
+local function createSwingEffect(attackType, attackIndex, hasWeapon)
+	-- Если есть оружие - не создаём свинг эффект
+	if hasWeapon then return end
+	
 	-- Определяем какая рука бьёт
 	-- Лёгкие: 1-правая, 2-левая, 3-правая, 4-правая
 	-- Тяжёлые: всегда левая
@@ -384,28 +539,32 @@ local function createSwingEffect(attackType, attackIndex)
 	local arm = character:FindFirstChild(armName)
 	if not arm then return end
 
-	-- Настройки в зависимости от типа атаки
-	local swingColor = attackType == "Heavy" 
+	-- Настройки в зависимости от типа атаки (только кулаки)
+	local swingColor, trailEndColor, trailLength, trailWidth
+	
+	-- Без оружия (кулаки) - менее заметные следы
+	swingColor = attackType == "Heavy" 
 		and Color3.fromRGB(255, 255, 255)  -- Белый для тяжёлых
 		or Color3.fromRGB(200, 200, 255)   -- Светло-голубой для лёгких
-
-	local trailEndColor = attackType == "Heavy"
+	trailEndColor = attackType == "Heavy"
 		and Color3.fromRGB(200, 200, 200)  -- Светло-серый для тяжёлых
 		or Color3.fromRGB(100, 100, 150)   -- Тёмно-голубой для лёгких
+	trailLength = attackType == "Heavy" and 0.4 or 0.25
+	trailWidth = attackType == "Heavy" and 1.2 or 0.8
 
-	local trailLength = attackType == "Heavy" and 0.4 or 0.25
-	local trailWidth = attackType == "Heavy" and 1.2 or 0.8
+	-- Эффект только на руке (кулаки)
+	local effectPart = arm
 
 	-- Создаём attachment'ы для trail
 	local attachment0 = Instance.new("Attachment")
 	attachment0.Name = "SwingTrailStart"
-	attachment0.Position = Vector3.new(0, -0.8, 0) -- Низ руки
-	attachment0.Parent = arm
+	attachment0.Position = Vector3.new(0, -0.8, 0)
+	attachment0.Parent = effectPart
 
 	local attachment1 = Instance.new("Attachment")
 	attachment1.Name = "SwingTrailEnd"
-	attachment1.Position = Vector3.new(0, 0.8, 0) -- Верх руки
-	attachment1.Parent = arm
+	attachment1.Position = Vector3.new(0, 0.8, 0)
+	attachment1.Parent = effectPart
 
 	-- Создаём Trail
 	local trail = Instance.new("Trail")
@@ -439,9 +598,9 @@ local function createSwingEffect(attackType, attackIndex)
 		NumberSequenceKeypoint.new(1, 0),
 	})
 
-	trail.Parent = arm
+	trail.Parent = effectPart
 
-	-- Также добавляем частицы на руку
+	-- Также добавляем частицы
 	local swingParticles = Instance.new("ParticleEmitter")
 	swingParticles.Name = "SwingParticles"
 	swingParticles.Color = ColorSequence.new(swingColor)
@@ -458,7 +617,7 @@ local function createSwingEffect(attackType, attackIndex)
 	swingParticles.SpreadAngle = Vector2.new(30, 30)
 	swingParticles.Rate = 50
 	swingParticles.LightEmission = attackType == "Heavy" and 0.4 or 0.2
-	swingParticles.Parent = arm
+	swingParticles.Parent = effectPart
 
 	-- Удаляем эффекты после атаки
 	local duration = attackType == "Heavy" and 0.6 or 0.35
@@ -475,28 +634,53 @@ end
 
 
 -- === ФУНКЦИЯ ВОСПРОИЗВЕДЕНИЯ ЗВУКА ПОПАДАНИЯ ===
-local function playHitSound(attackType, material)
+local function playHitSound(attackType, material, hasWeapon)
 	-- Если указан материал - это удар по стене/объекту
 	if material then
-		if material == Enum.Material.Metal or material == Enum.Material.DiamondPlate or material == Enum.Material.CorrodedMetal then
-			metalHitSound.PlaybackSpeed = 0.9 + math.random() * 0.2
-			metalHitSound:Play()
-		elseif material == Enum.Material.Wood or material == Enum.Material.WoodPlanks then
-			woodHitSound.PlaybackSpeed = 0.9 + math.random() * 0.2
-			woodHitSound:Play()
+		if hasWeapon then
+			-- Звуки меча по поверхностям
+			if material == Enum.Material.Metal or material == Enum.Material.DiamondPlate or material == Enum.Material.CorrodedMetal then
+				swordMetalHitSound.PlaybackSpeed = 0.9 + math.random() * 0.2
+				swordMetalHitSound:Play()
+			else
+				-- Камень, дерево и т.д.
+				swordStoneHitSound.PlaybackSpeed = 0.9 + math.random() * 0.2
+				swordStoneHitSound:Play()
+			end
 		else
-			-- Камень, бетон, пластик и т.д.
-			wallHitSound.PlaybackSpeed = 0.9 + math.random() * 0.2
-			wallHitSound:Play()
+			-- Звуки кулаков по поверхностям
+			if material == Enum.Material.Metal or material == Enum.Material.DiamondPlate or material == Enum.Material.CorrodedMetal then
+				metalHitSound.PlaybackSpeed = 0.9 + math.random() * 0.2
+				metalHitSound:Play()
+			elseif material == Enum.Material.Wood or material == Enum.Material.WoodPlanks then
+				woodHitSound.PlaybackSpeed = 0.9 + math.random() * 0.2
+				woodHitSound:Play()
+			else
+				-- Камень, бетон, пластик и т.д.
+				wallHitSound.PlaybackSpeed = 0.9 + math.random() * 0.2
+				wallHitSound:Play()
+			end
 		end
 	else
 		-- Удар по врагу
-		if attackType == "Heavy" then
-			heavyHitSound.PlaybackSpeed = 0.85 + math.random() * 0.2
-			heavyHitSound:Play()
+		if hasWeapon then
+			-- Звуки меча по врагу
+			if attackType == "Heavy" then
+				swordHeavyHitSound.PlaybackSpeed = 0.85 + math.random() * 0.2
+				swordHeavyHitSound:Play()
+			else
+				swordLightHitSound.PlaybackSpeed = 0.9 + math.random() * 0.2
+				swordLightHitSound:Play()
+			end
 		else
-			lightHitSound.PlaybackSpeed = 0.9 + math.random() * 0.2
-			lightHitSound:Play()
+			-- Звуки кулаков по врагу
+			if attackType == "Heavy" then
+				heavyHitSound.PlaybackSpeed = 0.85 + math.random() * 0.2
+				heavyHitSound:Play()
+			else
+				lightHitSound.PlaybackSpeed = 0.9 + math.random() * 0.2
+				lightHitSound:Play()
+			end
 		end
 	end
 end
@@ -641,7 +825,7 @@ local function createDamageLabel(position, damage, isCritical)
 end
 
 -- === ПРОВЕРКА УДАРА ПО СТЕНЕ ===
-local function checkWallHit(range, attackType)
+local function checkWallHit(range, attackType, hasWeapon)
 	local rayOrigin = rootPart.Position
 	local rayDirection = rootPart.CFrame.LookVector * (range + 1)
 
@@ -656,7 +840,7 @@ local function checkWallHit(range, attackType)
 		local parent = result.Instance.Parent
 		if not parent:FindFirstChild("Humanoid") then
 			-- Это стена/объект
-			playHitSound(attackType, result.Material)
+			playHitSound(attackType, result.Material, hasWeapon)
 			createWallHitEffect(result.Position, result.Normal, result.Material)
 			shakeCamera(0.15, 0.1)
 			return true
@@ -668,7 +852,7 @@ end
 
 
 -- === HITBOX СИСТЕМА ===
-local function createHitbox(range, damage, knockback, attackType)
+local function createHitbox(range, damage, knockback, attackType, hasWeapon)
 	local hitTargets = {}
 	local hitEnemy = false
 
@@ -686,8 +870,8 @@ local function createHitbox(range, damage, knockback, attackType)
 	for _, part in ipairs(parts) do
 		local targetChar = part.Parent
 		if targetChar and targetChar:FindFirstChild("Humanoid") and not hitTargets[targetChar] then
-			-- Пропускаем неуязвимых NPC
-			if CollectionService:HasTag(targetChar, "InvulnerableNPC") then
+			-- Пропускаем неуязвимых NPC (диалоговые NPC)
+			if CollectionService:HasTag(targetChar, "InvulnerableNPC") or CollectionService:HasTag(targetChar, "DialogueNPC") then
 				continue
 			end
 			
@@ -710,7 +894,7 @@ local function createHitbox(range, damage, knockback, attackType)
 				end
 
 				-- Звук попадания по врагу
-				playHitSound(attackType, nil)
+				playHitSound(attackType, nil, hasWeapon)
 
 				-- Тряска камеры при попадании
 				shakeCamera(0.3, 0.15)
@@ -730,7 +914,7 @@ local function createHitbox(range, damage, knockback, attackType)
 
 	-- Если не попали по врагу - проверяем стену
 	if not hitEnemy then
-		checkWallHit(range, attackType)
+		checkWallHit(range, attackType, hasWeapon)
 	end
 
 	return hitEnemy
@@ -767,7 +951,50 @@ local function performAttack(attackType)
 	if comboCooldown and attackType == "Light" then return end -- Кулдаун после комбо
 	if not canPerformAttack() then return end -- Проверяем состояния
 
-	local attacks = CombatConfig.Attacks[attackType]
+	-- Определяем какие атаки использовать (оружие или кулаки)
+	local attacks
+	local hasWeapon, weaponModel, weaponSlot = hasWeaponInHand()
+	local weaponData = getActiveWeaponData()
+	local weaponName = nil
+	
+	-- Отладка
+	print("CombatSystem: Attack - hasWeapon:", hasWeapon, "weaponSlot:", weaponSlot, "weaponData:", weaponData and weaponData.itemId or "nil")
+	
+	if hasWeapon and weaponData then
+		-- Есть оружие в руках - используем атаки оружия
+		weaponName = weaponData.itemId or weaponData.modelName
+		print("CombatSystem: Using weapon attacks for", weaponName)
+		local weaponAttacks = CombatConfig.WeaponAttacks[weaponName]
+		if weaponAttacks and weaponAttacks[attackType] then
+			attacks = weaponAttacks[attackType]
+			print("CombatSystem: Found specific weapon attacks")
+		else
+			-- Нет специальных атак для этого оружия - используем базовые с бонусом урона
+			attacks = CombatConfig.Attacks[attackType]
+			print("CombatSystem: Using base attacks with weapon damage bonus")
+			-- Добавляем бонус урона от оружия
+			if weaponData.damage then
+				-- Создаём копию с увеличенным уроном
+				local modifiedAttacks = {}
+				for i, attack in ipairs(attacks) do
+					modifiedAttacks[i] = {
+						name = attack.name,
+						damage = attack.damage + weaponData.damage,
+						staminaCost = attack.staminaCost,
+						duration = attack.duration,
+						range = attack.range + 1, -- Оружие даёт +1 к дальности
+						hitTime = attack.hitTime,
+					}
+				end
+				attacks = modifiedAttacks
+			end
+		end
+	else
+		-- Нет оружия - бьём кулаками
+		print("CombatSystem: Using fist attacks")
+		attacks = CombatConfig.Attacks[attackType]
+	end
+	
 	if not attacks then return end
 
 	-- Определяем какой удар в комбо
@@ -809,24 +1036,48 @@ local function performAttack(attackType)
 	-- Тратим стамину
 	useStamina(attackData.staminaCost)
 
-	-- Звук взмаха
-	if attackType == "Light" then
-		swingSound.PlaybackSpeed = 0.9 + math.random() * 0.2
-		swingSound:Play()
+	-- Звук взмаха (разные для кулаков и меча)
+	if hasWeapon then
+		-- Звуки меча
+		if attackType == "Light" then
+			swordSwingSound.PlaybackSpeed = 0.9 + math.random() * 0.2
+			swordSwingSound:Play()
+		else
+			swordHeavySwingSound.PlaybackSpeed = 0.8 + math.random() * 0.2
+			swordHeavySwingSound:Play()
+		end
 	else
-		heavySwingSound.PlaybackSpeed = 0.8 + math.random() * 0.2
-		heavySwingSound:Play()
+		-- Звуки кулаков
+		if attackType == "Light" then
+			swingSound.PlaybackSpeed = 0.9 + math.random() * 0.2
+			swingSound:Play()
+		else
+			heavySwingSound.PlaybackSpeed = 0.8 + math.random() * 0.2
+			heavySwingSound:Play()
+		end
 	end
 
-	-- Анимация - выбираем из нужного массива
-	local animArray = attackType == "Light" and lightAttackAnims or heavyAttackAnims
+	-- Анимация - выбираем из нужного массива в зависимости от оружия
+	local animArray
+	if hasWeapon and weaponName and loadedAnimations.Weapons[weaponName] then
+		-- Используем анимации оружия из конфига
+		animArray = loadedAnimations.Weapons[weaponName][attackType]
+		print("CombatSystem: Using", weaponName, "animations for", attackType)
+	end
+	
+	-- Если нет анимаций для оружия - используем базовые (кулаки)
+	if not animArray or #animArray == 0 then
+		animArray = attackType == "Light" and lightAttackAnims or heavyAttackAnims
+		print("CombatSystem: Using fist animations for", attackType)
+	end
+	
 	local animIndex = math.min(attackIndex, #animArray)
 	currentAttackTrack = animArray[animIndex]
 	currentAttackTrack:Play(0.1)
 	currentAttackTrack:AdjustSpeed(attackType == "Light" and 1.2 or 1.0) -- Тяжёлые медленнее
 
-	-- VFX свинга (след от удара)
-	createSwingEffect(attackType, attackIndex)
+	-- VFX свинга (след от удара) - только для кулаков
+	createSwingEffect(attackType, attackIndex, hasWeapon)
 
 	-- Тряска камеры при взмахе
 	shakeCamera(0.1, 0.1)
@@ -846,7 +1097,12 @@ local function performAttack(attackType)
 			damage = damage * (1 + (comboCount - 1) * 0.1)
 
 			local knockback = attackType == "Heavy" and 20 or 10
-			local didHit = createHitbox(attackData.range, damage, knockback, attackType)
+			-- Оружие даёт больше отталкивания
+			if hasWeapon then
+				knockback = knockback * 1.3
+			end
+			
+			local didHit = createHitbox(attackData.range, damage, knockback, attackType, hasWeapon)
 
 			if didHit then
 				-- Сильная тряска при попадании
@@ -880,7 +1136,7 @@ local function performAttack(attackType)
 	end)
 
 	-- Оповещаем
-	combatEvent:Fire("attack", attackType, attackIndex)
+	combatEvent:Fire("attack", attackType, attackIndex, hasWeapon)
 end
 
 
@@ -1194,6 +1450,8 @@ CombatSystem.GetComboCount = function() return comboCount end
 CombatSystem.GetLockedTarget = function() return lockedTarget end
 CombatSystem.CheckParry = checkParry
 CombatSystem.GetCombatEvent = function() return combatEvent end
+CombatSystem.HasWeaponInHand = hasWeaponInHand
+CombatSystem.GetActiveWeaponData = getActiveWeaponData
 
 -- Для внешнего вызова атаки
 CombatSystem.Attack = function(attackType)
@@ -1213,5 +1471,6 @@ CombatSystem.ToggleLockOn = toggleLockOn
 
 print("--- CombatSystem loaded ---")
 print("Controls: LMB = Light Attack, RMB = Heavy Attack, R = Parry, F = Block, G = Lock-On")
+print("Weapon system: Fists when no weapon equipped, weapon attacks when holding weapon")
 
 return CombatSystem

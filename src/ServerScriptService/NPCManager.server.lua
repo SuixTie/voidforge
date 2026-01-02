@@ -88,8 +88,9 @@ local function setupNPC(npc)
 	-- Якорим HumanoidRootPart чтобы нельзя было сдвинуть
 	rootPart.Anchored = true
 
-	-- Добавляем тег для идентификации как неуязвимого NPC
+	-- Добавляем теги для идентификации как неуязвимого NPC и диалогового NPC
 	CollectionService:AddTag(npc, "InvulnerableNPC")
+	CollectionService:AddTag(npc, "DialogueNPC")
 
 	-- === ЗАПУСКАЕМ IDLE АНИМАЦИЮ ===
 	playIdleAnimation(npc)

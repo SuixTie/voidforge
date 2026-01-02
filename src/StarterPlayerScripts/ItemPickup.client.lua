@@ -7,6 +7,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ProximityPromptService = game:GetService("ProximityPromptService")
 local SoundService = game:GetService("SoundService")
+local CollectionService = game:GetService("CollectionService")
 
 local player = Players.LocalPlayer
 
@@ -30,9 +31,15 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, playerWhoTrigger
 	if playerWhoTriggered ~= player then return end
 	if prompt.Name ~= "PickupPrompt" then return end
 	
-	local item = prompt.Parent and prompt.Parent.Parent
-	if not item then
-		item = prompt.Parent -- Если промпт на самой модели
+	local item = prompt.Parent
+	
+	-- Если промпт на части внутри модели, берём модель
+	-- Но если это BasePart с тегом PickupItem - берём сам Part
+	if item and not CollectionService:HasTag(item, "PickupItem") then
+		-- Проверяем родителя
+		if item.Parent and CollectionService:HasTag(item.Parent, "PickupItem") then
+			item = item.Parent
+		end
 	end
 	
 	if item and pickupItemEvent then

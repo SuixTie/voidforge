@@ -29,7 +29,8 @@ end
 
 -- Проверка является ли цель неуязвимым NPC
 local function isInvulnerableNPC(targetCharacter)
-	return CollectionService:HasTag(targetCharacter, "InvulnerableNPC")
+	return CollectionService:HasTag(targetCharacter, "InvulnerableNPC") or 
+	       CollectionService:HasTag(targetCharacter, "DialogueNPC")
 end
 
 -- Обработка запроса на урон от клиента
