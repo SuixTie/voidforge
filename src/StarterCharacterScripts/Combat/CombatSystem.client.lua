@@ -512,8 +512,43 @@ end
 
 -- === VFX СВИНГА (СЛЕД ОТ УДАРА) ===
 local function createSwingEffect(attackType, attackIndex, hasWeapon)
-	-- Если есть оружие - не создаём свинг эффект
-	if hasWeapon then return end
+	-- === SLASH VFX ДЛЯ МЕЧА ===
+	if hasWeapon and FxFolder then
+		local slashEffect = FxFolder:FindFirstChild("Slash-01")
+		if slashEffect then
+			-- Находим меч в руке
+			local weaponModel = character:FindFirstChild("Equipped_PRIMARY") or character:FindFirstChild("Equipped_SECONDARY")
+			local targetPart = weaponModel and weaponModel:FindFirstChild("Handle") or character:FindFirstChild("Right Arm")
+			
+			if targetPart then
+				-- Клонируем только ParticleEmitter и Attachment на оружие/руку
+				local attachment = Instance.new("Attachment")
+				attachment.Name = "SlashVFXAttachment"
+				attachment.Parent = targetPart
+
+				-- Копируем все ParticleEmitter из эффекта
+				for _, child in ipairs(slashEffect:GetDescendants()) do
+					if child:IsA("ParticleEmitter") then
+						local emitterClone = child:Clone()
+						emitterClone.Enabled = false
+						emitterClone.Rate = 0
+						emitterClone.Parent = attachment
+						local emitCount = child:GetAttribute("EmitCount") or (attackType == "Heavy" and 12 or 8)
+						emitterClone:Emit(emitCount)
+					end
+				end
+
+				-- Удаляем через время
+				local duration = attackType == "Heavy" and 0.8 or 0.5
+				task.delay(duration, function()
+					if attachment and attachment.Parent then
+						attachment:Destroy()
+					end
+				end)
+			end
+		end
+		return -- Для меча не создаём trail эффект
+	end
 
 	-- Определяем какая рука бьёт
 	-- Лёгкие: 1-правая, 2-левая, 3-правая, 4-правая
@@ -1141,13 +1176,13 @@ local function performAttack(attackType)
 		print("CombatSystem: Using fist animations for", attackType)
 	end
 
+	-- VFX свинга (след от удара) - вызываем ДО анимации чтобы слэш появлялся раньше
+	createSwingEffect(attackType, attackIndex, hasWeapon)
+
 	local animIndex = math.min(attackIndex, #animArray)
 	currentAttackTrack = animArray[animIndex]
 	currentAttackTrack:Play(0.1)
 	currentAttackTrack:AdjustSpeed(attackType == "Light" and 1.2 or 1.0) -- Тяжёлые медленнее
-
-	-- VFX свинга (след от удара) - только для кулаков
-	createSwingEffect(attackType, attackIndex, hasWeapon)
 
 	-- Тряска камеры при взмахе
 	shakeCamera(0.1, 0.1)

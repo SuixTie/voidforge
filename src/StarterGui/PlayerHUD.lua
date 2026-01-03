@@ -191,8 +191,8 @@ local healthBarCut = healthMask:FindFirstChild("HealthBarCut")
 -- === UI BUTTONS ===
 local buttonsContainer = Instance.new("Frame")
 buttonsContainer.Name = "ButtonsContainer"
-buttonsContainer.Size = UDim2.new(0, 60, 0, 24)
-buttonsContainer.Position = UDim2.new(0, 305, 0, 15)
+buttonsContainer.Size = UDim2.new(0, 84, 0, 24)
+buttonsContainer.Position = UDim2.new(0, 280, 0, 15)
 buttonsContainer.BackgroundTransparency = 1
 buttonsContainer.Parent = hudContainer
 
@@ -205,10 +205,19 @@ shopButton.Image = "rbxassetid://11385395241"
 shopButton.ScaleType = Enum.ScaleType.Fit
 shopButton.Parent = buttonsContainer
 
+local characterButton = Instance.new("ImageButton")
+characterButton.Name = "CharacterButton"
+characterButton.Size = UDim2.new(0, 18, 0, 18)
+characterButton.Position = UDim2.new(0, 24, 0, 0)
+characterButton.BackgroundTransparency = 1
+characterButton.Image = "rbxassetid://7992557358" -- Иконка персонажа
+characterButton.ScaleType = Enum.ScaleType.Fit
+characterButton.Parent = buttonsContainer
+
 local settingsButton = Instance.new("ImageButton")
 settingsButton.Name = "SettingsButton"
 settingsButton.Size = UDim2.new(0, 18, 0, 18)
-settingsButton.Position = UDim2.new(0, 24, 0, 0)
+settingsButton.Position = UDim2.new(0, 48, 0, 0)
 settingsButton.BackgroundTransparency = 1
 settingsButton.Image = "rbxassetid://105466965551651"
 settingsButton.ScaleType = Enum.ScaleType.Fit
@@ -336,6 +345,16 @@ shopButton.MouseLeave:Connect(function()
 	mouse.Icon = ""
 end)
 
+characterButton.MouseEnter:Connect(function()
+	TweenService:Create(characterButton, TweenInfo.new(0.1), {ImageTransparency = 0.3}):Play()
+	hoverSound:Play()
+	mouse.Icon = HOVER_CURSOR
+end)
+characterButton.MouseLeave:Connect(function()
+	TweenService:Create(characterButton, TweenInfo.new(0.1), {ImageTransparency = 0}):Play()
+	mouse.Icon = ""
+end)
+
 settingsButton.MouseEnter:Connect(function()
 	TweenService:Create(settingsButton, TweenInfo.new(0.1), {ImageTransparency = 0.3}):Play()
 	hoverSound:Play()
@@ -359,6 +378,12 @@ local InventoryMenu = require(ReplicatedStorage:WaitForChild("InventoryMenu"))
 shopButton.MouseButton1Click:Connect(function()
 	clickSound:Play()
 	ShopMenu.Toggle()
+end)
+
+characterButton.MouseButton1Click:Connect(function()
+	clickSound:Play()
+	-- TODO: Открыть панель персонажа (CharacterPanel)
+	print("Character panel button clicked")
 end)
 
 settingsButton.MouseButton1Click:Connect(function()
