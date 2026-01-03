@@ -7,6 +7,7 @@ local player = Players.LocalPlayer
 local crouchKey = Enum.KeyCode.C
 local RunConfig = require(ReplicatedStorage:WaitForChild("RunConfig"))
 local LedgeGrabConfig = require(ReplicatedStorage:WaitForChild("LedgeGrabConfig"))
+local CombatConfig = require(ReplicatedStorage:WaitForChild("CombatConfig"))
 
 -- === STAMINA INTEGRATION ===
 local isBreathing = false
@@ -222,6 +223,8 @@ UserInputService.InputBegan:Connect(function(input, gp)
 	if inDialogue and inDialogue.Value then return end
 	-- Блокируем присед во время отдышки
 	if isBreathing then return end
+	-- Блокируем присед во время блока
+	if CombatConfig.IsBlocking then return end
 	if toggle and toggle.Value then isKeyDown = not isKeyDown else isKeyDown = true end
 end)
 UserInputService.InputEnded:Connect(function(input, gp)

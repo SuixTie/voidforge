@@ -7,6 +7,7 @@ local camera = workspace.CurrentCamera
 
 local RunConfig = require(game.ReplicatedStorage.RunConfig)
 local LedgeGrabConfig = require(game.ReplicatedStorage.LedgeGrabConfig)
+local CombatConfig = require(game.ReplicatedStorage.CombatConfig)
 local UIS = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
@@ -60,6 +61,8 @@ local function Run()
 	if isBreathing then return end
 	-- Блокируем бег при приземлении
 	if isHardLanding or isSoftLanding then return end
+	-- Блокируем бег во время блока
+	if CombatConfig.IsBlocking then return end
 	if humanoid.MoveDirection.Magnitude > 0.1 and RunConfig.Walking and RunConfig.CanRun and not isSliding and not isCrouching and not RunConfig.Running then
 		isTransitioning = true
 		-- Не проигрываем анимацию перехода при low HP

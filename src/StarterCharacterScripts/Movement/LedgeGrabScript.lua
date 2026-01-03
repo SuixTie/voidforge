@@ -143,7 +143,7 @@ local function loadAnimations()
 		shimmySound.Volume = 0.1
 		shimmySound.Parent = rootPart
 	end
-	
+
 	-- Создаём звук перехода Q/E (corner)
 	if LedgeGrabConfig.CornerSoundId ~= "rbxassetid://0" then
 		cornerSound = Instance.new("Sound")
@@ -467,7 +467,7 @@ local isShimmyingLeft = false
 local function moveLeft()
 	if isShimmyingLeft then return end
 	isShimmyingLeft = true
-	
+
 	-- Меняем скорость существующего ledgeVelocity вместо создания нового
 	if ledgeVelocity then
 		ledgeVelocity.Velocity = cross * -3.5
@@ -498,7 +498,7 @@ local isShimmyingRight = false
 local function moveRight()
 	if isShimmyingRight then return end
 	isShimmyingRight = true
-	
+
 	-- Меняем скорость существующего ledgeVelocity вместо создания нового
 	if ledgeVelocity then
 		ledgeVelocity.Velocity = cross * 3.5
@@ -529,7 +529,7 @@ local function cornerLeft(turnRayResult)
 
 	-- Полностью отключаем физику персонажа
 	humanoid.PlatformStand = true
-	
+
 	-- Проигрываем звук перехода
 	if cornerSound then cornerSound:Play() end
 
@@ -591,7 +591,7 @@ local function cornerRight(turnRayResult)
 
 	-- Полностью отключаем физику персонажа
 	humanoid.PlatformStand = true
-	
+
 	-- Проигрываем звук перехода
 	if cornerSound then cornerSound:Play() end
 
@@ -653,7 +653,7 @@ local function sideWallLeft(sideWallResult)
 
 	-- Полностью отключаем физику персонажа
 	humanoid.PlatformStand = true
-	
+
 	-- Проигрываем звук перехода
 	if cornerSound then cornerSound:Play() end
 
@@ -717,7 +717,7 @@ local function sideWallRight(sideWallResult)
 
 	-- Полностью отключаем физику персонажа
 	humanoid.PlatformStand = true
-	
+
 	-- Проигрываем звук перехода
 	if cornerSound then cornerSound:Play() end
 
@@ -928,19 +928,19 @@ RunService.Heartbeat:Connect(function()
 			local origin = rootPart.CFrame.Position - cross * 1.5
 			local direction = rootPart.CFrame.LookVector * 2
 			local result = workspace:Raycast(origin, direction, raycastParams)
-			
+
 			if result then
 				-- Проверяем нет ли препятствия сбоку
 				local sideBlockOrigin = rootPart.CFrame.Position
 				local sideBlockDirection = -cross * 2
 				local sideBlockResult = workspace:Raycast(sideBlockOrigin, sideBlockDirection, raycastParams)
-				
+
 				if not sideBlockResult then
 					moveLeft()
 				end
 			end
 		end
-		
+
 		-- Проверяем зажата ли D
 		if UserInputService:IsKeyDown(Enum.KeyCode.D) and not isShimmyingRight then
 			raycastParams.FilterDescendantsInstances = {character}
@@ -948,20 +948,20 @@ RunService.Heartbeat:Connect(function()
 			local origin = rootPart.CFrame.Position + cross * 1.5
 			local direction = rootPart.CFrame.LookVector * 2
 			local result = workspace:Raycast(origin, direction, raycastParams)
-			
+
 			if result then
 				-- Проверяем нет ли препятствия сбоку
 				local sideBlockOrigin = rootPart.CFrame.Position
 				local sideBlockDirection = cross * 2
 				local sideBlockResult = workspace:Raycast(sideBlockOrigin, sideBlockDirection, raycastParams)
-				
+
 				if not sideBlockResult then
 					moveRight()
 				end
 			end
 		end
 	end
-	
+
 	-- Raycast forward and slightly up to find ledge
 	raycastParams.FilterDescendantsInstances = {character}
 	local origin = rootPart.CFrame.Position
@@ -979,11 +979,11 @@ RunService.Heartbeat:Connect(function()
 		if wallResult and wallResult.Instance and CollectionService:HasTag(wallResult.Instance, "Ledge") then
 			local wallPart = wallResult.Instance
 			local newNormal = wallResult.Normal
-			
+
 			-- Получаем полную ориентацию стены
 			local wallCFrame = wallPart.CFrame
 			local wallUp = wallCFrame.UpVector
-			
+
 			-- Вычисляем горизонтальную нормаль для направления взгляда
 			local horizontalNormal = Vector3.new(newNormal.X, 0, newNormal.Z)
 			if horizontalNormal.Magnitude > 0.01 then
@@ -991,7 +991,7 @@ RunService.Heartbeat:Connect(function()
 			else
 				horizontalNormal = newNormal
 			end
-			
+
 			-- Cross вектор для shimmy (вдоль стены)
 			local newCross = wallUp:Cross(horizontalNormal)
 			if newCross.Magnitude > 0.01 then
@@ -1003,13 +1003,13 @@ RunService.Heartbeat:Connect(function()
 
 			-- Игрок смотрит НА стену (в направлении стены, противоположно нормали)
 			local playerLook = -horizontalNormal
-			
+
 			-- Вычисляем Right вектор игрока (перпендикулярно Look и Up стены)
 			local playerRight = playerLook:Cross(wallUp).Unit
-			
+
 			-- Пересчитываем Up чтобы был ортогональным
 			local playerUp = playerRight:Cross(playerLook).Unit
-			
+
 			-- Создаём CFrame: игрок смотрит на стену, наклонён как стена
 			local targetCFrame = CFrame.fromMatrix(
 				rootPart.Position,
@@ -1017,9 +1017,9 @@ RunService.Heartbeat:Connect(function()
 				playerUp,      -- Up (наклон стены)
 				-playerLook    -- -LookVector (CFrame использует -Z как forward)
 			)
-			
+
 			gyro.CFrame = gyro.CFrame:Lerp(targetCFrame, 0.25)
-			
+
 			-- Корректируем высоту игрока постоянно на наклонной стене
 			local wallTilt = math.abs(wallUp:Dot(Vector3.new(0, 1, 0)))
 			if wallTilt < 0.99 then
@@ -1027,13 +1027,13 @@ RunService.Heartbeat:Connect(function()
 				local topCheckOrigin = rootPart.Position + Vector3.new(0, 8, 0) + rootPart.CFrame.LookVector * 2
 				local topCheckDirection = Vector3.new(0, -15, 0)
 				local topResult = workspace:Raycast(topCheckOrigin, topCheckDirection, raycastParams)
-				
+
 				if topResult and topResult.Instance == wallPart then
 					-- Голова должна быть НИЖЕ верха стены (опускаем на 1.5 studs)
 					local targetY = topResult.Position.Y - 1.5
 					local currentY = rootPart.Position.Y
 					local yDiff = targetY - currentY
-					
+
 					-- Корректировка высоты
 					if math.abs(yDiff) > 0.05 then
 						local correction = yDiff * 0.3
@@ -1051,7 +1051,7 @@ RunService.Heartbeat:Connect(function()
 	if result and result.Instance and ledgeavailable and not holding and CollectionService:HasTag(result.Instance, "Ledge") then
 		-- Блокируем захват во время отдышки
 		if isBreathing then return end
-		
+
 		local part = result.Instance
 		local normal = result.Normal
 		-- Part must be tall enough
@@ -1140,7 +1140,7 @@ player.CharacterAdded:Connect(function(newChar)
 
 	cleanup()
 	loadAnimations()
-	
+
 	-- Подключаем обработчик смерти для нового персонажа
 	humanoid.Died:Connect(function()
 		holding = false
@@ -1148,15 +1148,15 @@ player.CharacterAdded:Connect(function(newChar)
 		LedgeGrabConfig.IsHanging = false
 		LedgeGrabConfig.IsClimbingUp = false
 		LedgeGrabConfig.IsShimmying = false
-		
+
 		-- Сбрасываем RunConfig флаги
 		RunConfig.CanRun = true
 		RunConfig.Running = false
 		RunConfig.Sprinting = false
 		RunConfig.Walking = false
-		
+
 		cleanup()
-		
+
 		-- Останавливаем все анимации ledge
 		if holdTrack then holdTrack:Stop(0) end
 		if climbTrack then climbTrack:Stop(0) end
@@ -1173,15 +1173,15 @@ humanoid.Died:Connect(function()
 	LedgeGrabConfig.IsHanging = false
 	LedgeGrabConfig.IsClimbingUp = false
 	LedgeGrabConfig.IsShimmying = false
-	
+
 	-- Сбрасываем RunConfig флаги
 	RunConfig.CanRun = true
 	RunConfig.Running = false
 	RunConfig.Sprinting = false
 	RunConfig.Walking = false
-	
+
 	cleanup()
-	
+
 	-- Останавливаем все анимации ledge
 	if holdTrack then holdTrack:Stop(0) end
 	if climbTrack then climbTrack:Stop(0) end

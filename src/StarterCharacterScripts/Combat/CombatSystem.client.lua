@@ -397,18 +397,18 @@ local FxFolder = ReplicatedStorage:FindFirstChild("Fx")
 
 local function createHitEffect(hitPart, attackType, attackIndex, hasWeapon)
 	-- hitPart - часть тела, в которую попал удар
-	
+
 	if not FxFolder then
 		warn("CombatSystem: Fx folder not found in ReplicatedStorage")
 		return
 	end
-	
+
 	if not hitPart then return end
-	
+
 	local effectName
 	local bloodEffectName = nil
 	local effectIndex = attackIndex or 1
-	
+
 	if hasWeapon then
 		-- Для меча используем Slash-Impact-01
 		effectName = "Slash-Impact-01"
@@ -422,7 +422,7 @@ local function createHitEffect(hitPart, attackType, attackIndex, hasWeapon)
 		-- Для кулаков используем Punch эффекты
 		effectName = string.format("Punch-%02d", effectIndex)
 	end
-	
+
 	-- Функция для создания и запуска эффекта
 	local function spawnEffect(fxName)
 		local effectTemplate = FxFolder:FindFirstChild(fxName)
@@ -430,32 +430,32 @@ local function createHitEffect(hitPart, attackType, attackIndex, hasWeapon)
 			warn("CombatSystem: Effect not found:", fxName)
 			return
 		end
-		
+
 		-- Клонируем эффект
 		local effectClone = effectTemplate:Clone()
-		
+
 		-- Сохраняем ссылку на часть тела для отслеживания
 		local targetPart = hitPart
-		
+
 		-- Эффект - это Part с Attachment внутри
 		if effectClone:IsA("BasePart") then
 			effectClone.Transparency = 1
 			effectClone.CanCollide = false
 			effectClone.Massless = true
 			effectClone.Anchored = true
-			
+
 			-- Позиционируем Part в позицию hitPart
 			effectClone.CFrame = targetPart.CFrame
-			
+
 			-- Помещаем в workspace
 			effectClone.Parent = workspace
-			
+
 			-- Следуем за targetPart пока эффект существует
 			local connection
 			local isConnected = true
 			connection = RunService.Heartbeat:Connect(function()
 				if not isConnected then return end
-				
+
 				if effectClone and effectClone.Parent then
 					if targetPart and targetPart.Parent then
 						effectClone.CFrame = targetPart.CFrame
@@ -470,7 +470,7 @@ local function createHitEffect(hitPart, attackType, attackIndex, hasWeapon)
 					connection:Disconnect()
 				end
 			end)
-			
+
 			-- Отключаем соединение когда эффект удаляется
 			task.delay(2.1, function()
 				if isConnected and connection then
@@ -482,7 +482,7 @@ local function createHitEffect(hitPart, attackType, attackIndex, hasWeapon)
 			-- Fallback для других типов
 			effectClone.Parent = workspace
 		end
-		
+
 		-- Находим все ParticleEmitter внутри и запускаем их ОДИН раз
 		for _, child in ipairs(effectClone:GetDescendants()) do
 			if child:IsA("ParticleEmitter") then
@@ -496,14 +496,14 @@ local function createHitEffect(hitPart, attackType, attackIndex, hasWeapon)
 				child:Emit(emitCount)
 			end
 		end
-		
+
 		-- Удаляем эффект через некоторое время
 		Debris:AddItem(effectClone, 2)
 	end
-	
+
 	-- Создаём основной эффект удара
 	spawnEffect(effectName)
-	
+
 	-- Создаём эффект крови (только для меча)
 	if bloodEffectName then
 		spawnEffect(bloodEffectName)
@@ -533,6 +533,64 @@ local function createSwingEffect(attackType, attackIndex, hasWeapon)
 	local arm = character:FindFirstChild(armName)
 	if not arm then return end
 
+	-- === WIND-01 VFX ДЛЯ ЛЁГКИХ УДАРОВ КУЛАКАМИ ===
+	if attackType == "Light" and FxFolder then
+		local windEffect = FxFolder:FindFirstChild("Wind-01")
+		if windEffect then
+			-- Клонируем только ParticleEmitter и Attachment на руку
+			local attachment = Instance.new("Attachment")
+			attachment.Name = "WindVFXAttachment"
+			attachment.Parent = arm
+
+			-- Копируем все ParticleEmitter из эффекта
+			for _, child in ipairs(windEffect:GetDescendants()) do
+				if child:IsA("ParticleEmitter") then
+					local emitterClone = child:Clone()
+					emitterClone.Enabled = false
+					emitterClone.Rate = 0
+					emitterClone.Parent = attachment
+					emitterClone:Emit(child:GetAttribute("EmitCount") or 5)
+				end
+			end
+
+			-- Удаляем через время
+			task.delay(0.5, function()
+				if attachment and attachment.Parent then
+					attachment:Destroy()
+				end
+			end)
+		end
+	end
+
+	-- === WIND-02 VFX ДЛЯ ТЯЖЁЛЫХ УДАРОВ КУЛАКАМИ ===
+	if attackType == "Heavy" and FxFolder then
+		local windEffect = FxFolder:FindFirstChild("Wind-02")
+		if windEffect then
+			-- Клонируем только ParticleEmitter и Attachment на руку
+			local attachment = Instance.new("Attachment")
+			attachment.Name = "WindVFXAttachment"
+			attachment.Parent = arm
+
+			-- Копируем все ParticleEmitter из эффекта
+			for _, child in ipairs(windEffect:GetDescendants()) do
+				if child:IsA("ParticleEmitter") then
+					local emitterClone = child:Clone()
+					emitterClone.Enabled = false
+					emitterClone.Rate = 0
+					emitterClone.Parent = attachment
+					emitterClone:Emit(child:GetAttribute("EmitCount") or 8)
+				end
+			end
+
+			-- Удаляем через время
+			task.delay(0.7, function()
+				if attachment and attachment.Parent then
+					attachment:Destroy()
+				end
+			end)
+		end
+	end
+
 	-- Настройки в зависимости от типа атаки
 	local swingColor = attackType == "Heavy" 
 		and Color3.fromRGB(255, 255, 255)  -- Белый для тяжёлых
@@ -541,8 +599,8 @@ local function createSwingEffect(attackType, attackIndex, hasWeapon)
 	local trailEndColor = attackType == "Heavy"
 		and Color3.fromRGB(200, 200, 200)  -- Светло-серый для тяжёлых
 		or Color3.fromRGB(100, 100, 150)   -- Тёмно-голубой для лёгких
-	trailLength = attackType == "Heavy" and 0.4 or 0.25
-	trailWidth = attackType == "Heavy" and 1.2 or 0.8
+	local trailLength = attackType == "Heavy" and 0.4 or 0.25
+	local trailWidth = attackType == "Heavy" and 1.2 or 0.8
 
 	-- Эффект только на руке (кулаки)
 	local effectPart = arm
@@ -576,10 +634,10 @@ local function createSwingEffect(attackType, attackIndex, hasWeapon)
 		ColorSequenceKeypoint.new(1, trailEndColor),
 	})
 
-	-- Градиент прозрачности
+	-- Градиент прозрачности (более прозрачный)
 	trail.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.2),
-		NumberSequenceKeypoint.new(0.3, 0.4),
+		NumberSequenceKeypoint.new(0, 0.6),
+		NumberSequenceKeypoint.new(0.3, 0.75),
 		NumberSequenceKeypoint.new(1, 1),
 	})
 
@@ -601,7 +659,7 @@ local function createSwingEffect(attackType, attackIndex, hasWeapon)
 		NumberSequenceKeypoint.new(1, 0),
 	})
 	swingParticles.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.3),
+		NumberSequenceKeypoint.new(0, 0.7),
 		NumberSequenceKeypoint.new(1, 1),
 	})
 	swingParticles.Lifetime = NumberRange.new(0.1, 0.2)
@@ -862,7 +920,7 @@ local function createHitbox(range, damage, knockback, attackType, hasWeapon, att
 
 	-- Группируем части по персонажам и находим ближайшую часть для каждого
 	local targetPartsMap = {} -- {targetChar = {parts = {}, closestPart = nil, closestDist = math.huge}}
-	
+
 	for _, part in ipairs(parts) do
 		local targetChar = part.Parent
 		if targetChar and targetChar:FindFirstChild("Humanoid") then
@@ -870,13 +928,13 @@ local function createHitbox(range, damage, knockback, attackType, hasWeapon, att
 			if CollectionService:HasTag(targetChar, "InvulnerableNPC") or CollectionService:HasTag(targetChar, "DialogueNPC") then
 				continue
 			end
-			
+
 			if not targetPartsMap[targetChar] then
 				targetPartsMap[targetChar] = {parts = {}, closestPart = nil, closestDist = math.huge}
 			end
-			
+
 			table.insert(targetPartsMap[targetChar].parts, part)
-			
+
 			-- Вычисляем расстояние от центра хитбокса до части
 			local dist = (part.Position - hitboxCenter).Magnitude
 			if dist < targetPartsMap[targetChar].closestDist then
@@ -889,7 +947,7 @@ local function createHitbox(range, damage, knockback, attackType, hasWeapon, att
 	-- Обрабатываем каждого персонажа
 	for targetChar, data in pairs(targetPartsMap) do
 		if hitTargets[targetChar] then continue end
-		
+
 		local targetHumanoid = targetChar:FindFirstChild("Humanoid")
 		local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
 
@@ -914,7 +972,7 @@ local function createHitbox(range, damage, knockback, attackType, hasWeapon, att
 			-- VFX попадания - используем ближайшую часть к центру хитбокса
 			local hitPart = data.closestPart
 			createHitEffect(hitPart, attackType, attackIndex, hasWeapon)
-			
+
 			-- Всплывающий урон
 			local isCritical = attackType == "Heavy" and damage >= 30
 			createDamageLabel(hitPart.Position, damage, isCritical)
@@ -1173,11 +1231,21 @@ local function startBlock()
 	local inDialogue = player:FindFirstChild("InDialogue")
 	if inDialogue and inDialogue.Value then return end
 
+	-- Нельзя блокировать во время приседа
+	local isCrouchingValue = player:FindFirstChild("IsCrouching")
+	if isCrouchingValue and isCrouchingValue.Value then return end
+
+	-- Нельзя блокировать во время бега
+	if RunConfig and RunConfig.Running then return end
+
 	isBlocking = true
 	CombatConfig.IsBlocking = true
 	blockingValue.Value = true
 
 	humanoid.WalkSpeed = BLOCK_WALK_SPEED
+
+	-- Отключаем прыжок во время блока
+	humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, false)
 
 	-- Получаем правильную анимацию блока (в зависимости от оружия)
 	currentBlockTrack, currentParryTrack = getBlockParryAnims()
@@ -1195,7 +1263,7 @@ local function startBlock()
 	else
 		blockSound:Play()
 	end
-	
+
 	combatEvent:Fire("block", true)
 end
 
@@ -1224,6 +1292,9 @@ local function stopBlock()
 		humanoid.WalkSpeed = NORMAL_WALK_SPEED
 	end
 
+	-- Восстанавливаем прыжок
+	humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, true)
+
 	combatEvent:Fire("block", false)
 end
 
@@ -1234,6 +1305,16 @@ local parryWindowStart = 0
 local function attemptParry()
 	if isAttacking or isStaggered or isParrying then return end
 	if not canAffordStamina(CombatConfig.Parry.StaminaCost) then return end
+
+	-- Нельзя парировать во время блока
+	if isBlocking then return end
+
+	-- Нельзя парировать во время приседа
+	local isCrouchingValue = player:FindFirstChild("IsCrouching")
+	if isCrouchingValue and isCrouchingValue.Value then return end
+
+	-- Нельзя парировать во время бега
+	if RunConfig and RunConfig.Running then return end
 
 	-- Проверяем диалог
 	local inDialogue = player:FindFirstChild("InDialogue")
@@ -1373,7 +1454,7 @@ local function toggleLockOn()
 		end
 		return
 	end
-	
+
 	if lockedTarget then
 		-- Отключаем lock-on
 		lockedTarget = nil
@@ -1416,7 +1497,7 @@ RunService.RenderStepped:Connect(function()
 			toggleLockOn()
 			return
 		end
-		
+
 		local targetRoot = lockedTarget:FindFirstChild("HumanoidRootPart")
 		local targetHumanoid = lockedTarget:FindFirstChild("Humanoid")
 
