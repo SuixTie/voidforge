@@ -374,6 +374,9 @@ local ShopMenu = require(ReplicatedStorage:WaitForChild("ShopMenu"))
 -- === ПОДКЛЮЧЕНИЕ МЕНЮ ИНВЕНТАРЯ ===
 local InventoryMenu = require(ReplicatedStorage:WaitForChild("InventoryMenu"))
 
+-- === ПОДКЛЮЧЕНИЕ ПАНЕЛИ ПЕРСОНАЖА ===
+local CharacterPanel = require(ReplicatedStorage:WaitForChild("CharacterPanel"))
+
 -- === CLICK ЭФФЕКТЫ ДЛЯ КНОПОК HUD ===
 shopButton.MouseButton1Click:Connect(function()
 	clickSound:Play()
@@ -382,8 +385,7 @@ end)
 
 characterButton.MouseButton1Click:Connect(function()
 	clickSound:Play()
-	-- TODO: Открыть панель персонажа (CharacterPanel)
-	print("Character panel button clicked")
+	CharacterPanel.Toggle()
 end)
 
 settingsButton.MouseButton1Click:Connect(function()
@@ -468,6 +470,9 @@ HUD.ToggleShop = ShopMenu.Toggle
 HUD.OpenInventory = InventoryMenu.Open
 HUD.CloseInventory = InventoryMenu.Close
 HUD.ToggleInventory = InventoryMenu.Toggle
+HUD.OpenCharacterPanel = CharacterPanel.Open
+HUD.CloseCharacterPanel = CharacterPanel.Close
+HUD.ToggleCharacterPanel = CharacterPanel.Toggle
 
 print("--- PlayerHUD 3D loaded ---")
 return HUD

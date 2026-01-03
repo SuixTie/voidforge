@@ -43,6 +43,12 @@ bobbing = game:GetService("RunService").RenderStepped:Connect(function(deltaTime
 		return
 	end
 	
+	-- Пропускаем если панель персонажа открыта (камера управляется CharacterPanel)
+	local characterPanelOpen = Player:FindFirstChild("CharacterPanelOpen")
+	if characterPanelOpen and characterPanelOpen.Value then
+		return
+	end
+	
 	local rootMagnitude = Humanoid.RootPart and Vector3.new(Humanoid.RootPart.Velocity.X, 0, Humanoid.RootPart.Velocity.Z).Magnitude or 0
 	local calcRootMagnitude = math.min(rootMagnitude, 25)
 	if deltaTime > 1.5 then

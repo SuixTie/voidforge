@@ -63,6 +63,9 @@ local function Run()
 	if isHardLanding or isSoftLanding then return end
 	-- Блокируем бег во время блока
 	if CombatConfig.IsBlocking then return end
+	-- Блокируем бег если панель персонажа открыта
+	local characterPanelOpen = player:FindFirstChild("CharacterPanelOpen")
+	if characterPanelOpen and characterPanelOpen.Value then return end
 	if humanoid.MoveDirection.Magnitude > 0.1 and RunConfig.Walking and RunConfig.CanRun and not isSliding and not isCrouching and not RunConfig.Running then
 		isTransitioning = true
 		-- Не проигрываем анимацию перехода при low HP

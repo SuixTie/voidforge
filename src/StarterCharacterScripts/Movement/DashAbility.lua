@@ -85,6 +85,10 @@ UIS.InputBegan:Connect(function(input, gameprocessed)
 	local inDialogue = player:FindFirstChild("InDialogue")
 	if inDialogue and inDialogue.Value then return end
 	
+	-- Не даём делать дэш если панель персонажа открыта
+	local characterPanelOpen = player:FindFirstChild("CharacterPanelOpen")
+	if characterPanelOpen and characterPanelOpen.Value then return end
+	
 	-- Не даём делать дэш во время виса на краю
 	if LedgeGrabConfig.IsHanging then return end
 	

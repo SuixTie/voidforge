@@ -1031,6 +1031,10 @@ local function canPerformAttack()
 	local inDialogue = player:FindFirstChild("InDialogue")
 	if inDialogue and inDialogue.Value then return false end
 
+	-- Проверяем открыта ли панель персонажа
+	local characterPanelOpen = player:FindFirstChild("CharacterPanelOpen")
+	if characterPanelOpen and characterPanelOpen.Value then return false end
+
 	-- Проверяем бег
 	if RunConfig and RunConfig.Running then return false end
 
@@ -1266,6 +1270,10 @@ local function startBlock()
 	local inDialogue = player:FindFirstChild("InDialogue")
 	if inDialogue and inDialogue.Value then return end
 
+	-- Проверяем открыта ли панель персонажа
+	local characterPanelOpen = player:FindFirstChild("CharacterPanelOpen")
+	if characterPanelOpen and characterPanelOpen.Value then return end
+
 	-- Нельзя блокировать во время приседа
 	local isCrouchingValue = player:FindFirstChild("IsCrouching")
 	if isCrouchingValue and isCrouchingValue.Value then return end
@@ -1343,6 +1351,10 @@ local function attemptParry()
 
 	-- Нельзя парировать во время блока
 	if isBlocking then return end
+
+	-- Проверяем открыта ли панель персонажа
+	local characterPanelOpen = player:FindFirstChild("CharacterPanelOpen")
+	if characterPanelOpen and characterPanelOpen.Value then return end
 
 	-- Нельзя парировать во время приседа
 	local isCrouchingValue = player:FindFirstChild("IsCrouching")

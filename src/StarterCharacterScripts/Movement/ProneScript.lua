@@ -140,6 +140,10 @@ RunService.RenderStepped:Connect(function()
 	
 	-- Не меняем состояние во время диалога
 	if inDialogue and inDialogue.Value then return end
+	
+	-- Не меняем состояние если панель персонажа открыта
+	local characterPanelOpen = player:FindFirstChild("CharacterPanelOpen")
+	if characterPanelOpen and characterPanelOpen.Value then return end
 
 	local ENTER_PRONE_DIST = 0.1 
 	local EXIT_PRONE_DIST = 2 

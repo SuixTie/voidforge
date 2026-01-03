@@ -1051,6 +1051,10 @@ RunService.Heartbeat:Connect(function()
 	if result and result.Instance and ledgeavailable and not holding and CollectionService:HasTag(result.Instance, "Ledge") then
 		-- Блокируем захват во время отдышки
 		if isBreathing then return end
+		
+		-- Блокируем захват если панель персонажа открыта
+		local characterPanelOpen = player:FindFirstChild("CharacterPanelOpen")
+		if characterPanelOpen and characterPanelOpen.Value then return end
 
 		local part = result.Instance
 		local normal = result.Normal
