@@ -216,4 +216,64 @@ end
 
 RunService.RenderStepped:Connect(updateCompass)
 
+-- === ФУНКЦИИ СКРЫТИЯ/ПОКАЗА КОМПАСА ===
+local isCompassHidden = false
+
+local function hideCompass()
+	if isCompassHidden then return end
+	isCompassHidden = true
+	
+	-- Отключаем 3D компонент (это удалит Part из CurrentCamera)
+	if Frame3D then
+		Frame3D:Disable()
+	end
+	
+	-- Скрываем 2D контейнер
+	compassFrame.Visible = false
+end
+
+local function showCompass()
+	if not isCompassHidden then return end
+	isCompassHidden = false
+	
+	-- Показываем 2D контейнер
+	compassFrame.Visible = true
+	
+	-- Включаем 3D компонент обратно
+	if Frame3D then
+		Frame3D:Enable()
+	end
+end
+
+-- === СОБЫТИЯ ДЛЯ СКРЫТИЯ/ПОКАЗА GUI ===
+local function setupGUIEvents()
+	-- Событие скрытия
+	local hideEvent = player:FindFirstChild("HideGUIEvent")
+	if not hideEvent then
+		hideEvent = Instance.new("BindableEvent")
+		hideEvent.Name = "HideGUIEvent"
+		hideEvent.Parent = player
+	end
+	hideEvent.Event:Connect(hideCompass)
+	
+	-- Событие показа
+	local showEvent = player:FindFirstChild("ShowGUIEvent")
+	if not showEvent then
+		showEvent = Instance.new("BindableEvent")
+		showEvent.Name = "ShowGUIEvent"
+		showEvent.Parent = player
+	end
+	showEvent.Event:Connect(showCompass)
+end
+setupGUIEvents()
+
+-- === ЭКСПОРТ ===
+local Compass = {}
+Compass.GUI3D = GUI3D
+Compass.Frame3D = Frame3D
+Compass.HideCompass = hideCompass
+Compass.ShowCompass = showCompass
+
 print("--- CompassGui3D loaded (Screen3D) ---")
+
+return Compass

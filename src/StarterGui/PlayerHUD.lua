@@ -455,12 +455,77 @@ player.CharacterAdded:Connect(connectToCharacter)
 updateHealthBar(currentHealth)
 updateStaminaBar(currentStamina)
 
+-- === ФУНКЦИИ СКРЫТИЯ/ПОКАЗА HUD ===
+local isHUDHidden = false
+
+local function resetButtonHovers()
+	-- Сбрасываем hover эффекты всех кнопок
+	shopButton.ImageTransparency = 0
+	characterButton.ImageTransparency = 0
+	settingsButton.ImageTransparency = 0
+	mouse.Icon = ""
+end
+
+local function hideHUD()
+	if isHUDHidden then return end
+	isHUDHidden = true
+	
+	-- Сбрасываем hover эффекты кнопок
+	resetButtonHovers()
+	
+	-- Отключаем 3D компонент (это удалит Part из CurrentCamera)
+	if HUD3D then
+		HUD3D:Disable()
+	end
+	
+	-- Скрываем 2D контейнер
+	hudContainer.Visible = false
+end
+
+local function showHUD()
+	if not isHUDHidden then return end
+	isHUDHidden = false
+	
+	-- Показываем 2D контейнер
+	hudContainer.Visible = true
+	
+	-- Включаем 3D компонент обратно
+	if HUD3D then
+		HUD3D:Enable()
+	end
+end
+
+-- === СОБЫТИЯ ДЛЯ СКРЫТИЯ/ПОКАЗА GUI ===
+local function setupGUIEvents()
+	-- Событие скрытия
+	local hideEvent = player:FindFirstChild("HideGUIEvent")
+	if not hideEvent then
+		hideEvent = Instance.new("BindableEvent")
+		hideEvent.Name = "HideGUIEvent"
+		hideEvent.Parent = player
+	end
+	hideEvent.Event:Connect(hideHUD)
+	
+	-- Событие показа
+	local showEvent = player:FindFirstChild("ShowGUIEvent")
+	if not showEvent then
+		showEvent = Instance.new("BindableEvent")
+		showEvent.Name = "ShowGUIEvent"
+		showEvent.Parent = player
+	end
+	showEvent.Event:Connect(showHUD)
+end
+setupGUIEvents()
+
 -- === ЭКСПОРТ ===
 local HUD = {}
 HUD.UpdateHealth = updateHealthBar
 HUD.UpdateStamina = updateStaminaBar
 HUD.UpdateLevel = updateLevel
 HUD.GUI3D = GUI3D
+HUD.HUD3D = HUD3D
+HUD.HideHUD = hideHUD
+HUD.ShowHUD = showHUD
 HUD.OpenSettings = SettingsMenu.Open
 HUD.CloseSettings = SettingsMenu.Close
 HUD.ToggleSettings = SettingsMenu.Toggle
