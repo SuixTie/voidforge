@@ -12,15 +12,15 @@ local playerGui = player:WaitForChild("PlayerGui")
 
 local Screen3D = require(ReplicatedStorage:WaitForChild("Screen3D"))
 
--- === ЦВЕТА CYBERPUNK ===
+-- === ЦВЕТА НЕОН-АНИМЕ ===
 local COLORS = {
-	Background = Color3.fromRGB(10, 12, 18),
-	BackgroundStroke = Color3.fromRGB(0, 255, 200),
-	MainLine = Color3.fromRGB(180, 170, 140),
-	Cardinal = Color3.fromRGB(0, 255, 200),
-	Intercardinal = Color3.fromRGB(255, 50, 100),
-	Tick = Color3.fromRGB(100, 95, 80),
-	CenterMarker = Color3.fromRGB(255, 200, 50),
+	Background = Color3.fromRGB(10, 10, 26),
+	BackgroundStroke = Color3.fromRGB(0, 255, 255),
+	MainLine = Color3.fromRGB(100, 100, 120),
+	Cardinal = Color3.fromRGB(0, 255, 255),         -- Циан для N/S/E/W
+	Intercardinal = Color3.fromRGB(255, 0, 255),    -- Розовый для NE/SE/SW/NW
+	Tick = Color3.fromRGB(80, 80, 100),
+	CenterMarker = Color3.fromRGB(255, 215, 0),     -- Золотой маркер
 }
 
 -- === СОЗДАНИЕ 2D GUI (база для 3D) ===

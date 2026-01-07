@@ -62,6 +62,35 @@ CombatConfig.WeaponAttacks = {
 			Parry = "rbxassetid://121913695047313", -- Парирование мечом (быстрый отбив)
 		},
 	},
+	["Axe"] = {
+		Light = {
+			{name = "AxeSwing1", damage = 22, staminaCost = 12, duration = 0.5, range = 5.5, hitTime = 0.18},
+			{name = "AxeSwing2", damage = 25, staminaCost = 13, duration = 0.55, range = 5.5, hitTime = 0.2},
+			{name = "AxeSwing3", damage = 30, staminaCost = 15, duration = 0.6, range = 6, hitTime = 0.22},
+			{name = "AxeSwing4", damage = 38, staminaCost = 18, duration = 0.7, range = 6.5, hitTime = 0.25},
+		},
+		Heavy = {
+			{name = "HeavyAxe1", damage = 55, staminaCost = 28, duration = 1.0, range = 6.5, hitTime = 0.9},
+			{name = "HeavyAxe2", damage = 70, staminaCost = 32, duration = 1.1, range = 7, hitTime = 0.9},
+			{name = "HeavyAxe3", damage = 90, staminaCost = 40, duration = 1.3, range = 7.5, hitTime = 0.9},
+		},
+		-- Анимации для топора (R6) - используем те же что и для меча, можно заменить на свои
+		Animations = {
+			Light = {
+				"rbxassetid://87937177607072", -- Axe Swing 1
+				"rbxassetid://100347694468031", -- Axe Swing 2
+				"rbxassetid://87937177607072", -- Axe Swing 3
+				"rbxassetid://100347694468031",  -- Axe Swing 4
+			},
+			Heavy = {
+				"rbxassetid://71578631096974", -- Heavy Axe 1
+				"rbxassetid://71578631096974", -- Heavy Axe 2
+				"rbxassetid://71578631096974", -- Heavy Axe 3
+			},
+			Block = "rbxassetid://121454684276110", -- Блок топором
+			Parry = "rbxassetid://121913695047313", -- Парирование топором
+		},
+	},
 }
 
 -- Дефолтные анимации блока и парирования (кулаки)
@@ -97,6 +126,13 @@ CombatConfig.Block = {
 	DamageReduction = 0.7,
 	StaminaDrain = 1.5,
 	BreakThreshold = 30,
+	-- Прочность блока
+	MaxDurability = 100,        -- Максимальная прочность
+	DurabilityDrain = 15,       -- Сколько прочности снимает лёгкий удар
+	HeavyDurabilityDrain = 30,  -- Сколько прочности снимает тяжёлый удар
+	RegenDelay = 2,             -- Задержка перед восстановлением (сек)
+	RegenRate = 20,             -- Скорость восстановления в секунду
+	BreakStunDuration = 1.5,    -- Длительность стана при сломе блока
 }
 
 -- === НАСТРОЙКИ КОМБО ===

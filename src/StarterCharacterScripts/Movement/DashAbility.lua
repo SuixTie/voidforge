@@ -1,11 +1,17 @@
 local UIS = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
+local Debris = game:GetService("Debris")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local char = script.Parent.Parent 
 local humanoid = char:WaitForChild("Humanoid")
 local rootPart = char:WaitForChild("HumanoidRootPart")
 local rootJoint = rootPart:WaitForChild("RootJoint")
 local RunConfig = require(game.ReplicatedStorage.RunConfig)
 local LedgeGrabConfig = require(game.ReplicatedStorage.LedgeGrabConfig)
+
+-- Папка с эффектами
+local FxFolder = ReplicatedStorage:FindFirstChild("Fx")
 
 local player = game.Players.LocalPlayer
 local isCrouchingValue = player:WaitForChild("IsCrouching")
@@ -78,6 +84,73 @@ local function setVisualOffset(offset, speed)
 	TweenService:Create(rootJoint, TweenInfo.new(speed), {C0 = targetC0}):Play()
 end
 
+-- === DUST VFX ПРИ ПЕРЕКАТЕ ===
+local activeDustConnection = nil
+local dustDebounce = false
+local DUST_INTERVAL = 0.15  -- Интервал между эффектами при перекате
+local DUST_PARTICLE_COUNT = 2  -- Количество частиц за раз
+local DUST_TRANSPARENCY = 0.6  -- Прозрачность эффекта (0-1, больше = прозрачнее)
+
+local function createDustEffect(duration)
+	if not FxFolder then return end
+	
+	local dustTemplate = FxFolder:FindFirstChild("Dust")
+	if not dustTemplate then
+		warn("DashAbility: Dust effect not found in Fx folder")
+		return
+	end
+	
+	-- Останавливаем предыдущий эффект если есть
+	if activeDustConnection then
+		activeDustConnection:Disconnect()
+		activeDustConnection = nil
+	end
+	
+	local startTime = tick()
+	dustDebounce = false
+	
+	-- Создаём эффекты пыли на протяжении переката
+	activeDustConnection = RunService.Heartbeat:Connect(function()
+		if tick() - startTime > (duration or 0.8) then
+			activeDustConnection:Disconnect()
+			activeDustConnection = nil
+			return
+		end
+		
+		if dustDebounce then return end
+		dustDebounce = true
+		
+		-- Позиция позади игрока на полу
+		local behindOffset = rootPart.CFrame.LookVector * -2  -- 2 studs позади
+		local dustPosition = rootPart.Position + behindOffset + Vector3.new(0, -2.5, 0)
+		
+		-- Клонируем эффект
+		local dust = dustTemplate:Clone()
+		dust.Position = dustPosition
+		dust.Parent = workspace:FindFirstChild("Fx") or workspace
+		dust.Name = "RollDust"
+		
+		-- Emit частицы с прозрачностью
+		local attachment = dust:FindFirstChild("Attachment")
+		if attachment then
+			local dustEmitter = attachment:FindFirstChild("Dust")
+			if dustEmitter then
+				-- Устанавливаем прозрачность
+				dustEmitter.Transparency = NumberSequence.new(DUST_TRANSPARENCY, 1)
+				dustEmitter:Emit(DUST_PARTICLE_COUNT)
+			end
+		end
+		
+		-- Удаляем через время
+		Debris:AddItem(dust, 2.5)
+		
+		-- Cooldown
+		task.delay(DUST_INTERVAL, function()
+			dustDebounce = false
+		end)
+	end)
+end
+
 UIS.InputBegan:Connect(function(input, gameprocessed)
 	if gameprocessed or not canslide or input.KeyCode ~= keybind then return end
 	
@@ -115,6 +188,10 @@ UIS.InputBegan:Connect(function(input, gameprocessed)
 	-- Тратим стамину через событие
 	local dashType = isCrouching and "roll" or "dash"
 	dashStaminaEvent:Fire(dashType)
+	
+	-- Создаём эффект пыли при перекате (длительность зависит от типа)
+	local dustDuration = isCrouching and 0.8 or 0.6
+	createDustEffect(dustDuration)
 
 	if isCrouching then
 		humanoid.HipHeight = -2.0

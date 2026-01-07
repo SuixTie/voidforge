@@ -29,14 +29,18 @@ local maxStamina = 100
 local currentStamina = 100
 local playerLevel = 1
 
--- === ЦВЕТА (Cyberpunk Style) ===
+-- === ЦВЕТА (Неон-Аниме Style) ===
+-- Референсы: Persona 5, Genshin Impact, SAO
 local COLORS = {
-	HealthBar = Color3.fromRGB(255, 45, 85),
-	HealthBarLow = Color3.fromRGB(101, 17, 33),
-	StaminaBar = Color3.fromRGB(0, 255, 255),
-	BarWhite = Color3.fromRGB(40, 40, 60),
-	LevelBox = Color3.fromRGB(15, 5, 30),
-	Text = Color3.fromRGB(0, 255, 255),
+	HealthBar = Color3.fromRGB(255, 50, 100),       -- Розовый неон
+	HealthBarLow = Color3.fromRGB(150, 30, 60),     -- Тёмно-розовый
+	StaminaBar = Color3.fromRGB(0, 255, 255),       -- Циан неон
+	BarBg = Color3.fromRGB(30, 30, 50),             -- Тёмно-синий фон
+	LevelBox = Color3.fromRGB(15, 15, 35),          -- Тёмный фон
+	Text = Color3.fromRGB(255, 255, 255),           -- Белый текст
+	Accent = Color3.fromRGB(0, 255, 255),           -- Циан акцент
+	AccentPink = Color3.fromRGB(255, 0, 255),       -- Розовый акцент
+	Gold = Color3.fromRGB(255, 215, 0),             -- Золотой
 }
 
 -- === СОЗДАНИЕ GUI ===
@@ -72,15 +76,15 @@ levelBox.Rotation = 45
 levelBox.Parent = levelBoxContainer
 
 local levelBoxStroke = Instance.new("UIStroke")
-levelBoxStroke.Color = Color3.fromRGB(0, 255, 255)
+levelBoxStroke.Color = COLORS.Accent
 levelBoxStroke.Thickness = 2
 levelBoxStroke.Parent = levelBox
 
 local strokeGradient = Instance.new("UIGradient")
 strokeGradient.Transparency = NumberSequence.new({
-	NumberSequenceKeypoint.new(0, 1),
-	NumberSequenceKeypoint.new(0.5, 0.6),
-	NumberSequenceKeypoint.new(1, 0.2)
+	NumberSequenceKeypoint.new(0, 0.8),
+	NumberSequenceKeypoint.new(0.5, 0),
+	NumberSequenceKeypoint.new(1, 0.8)
 })
 strokeGradient.Rotation = -45
 strokeGradient.Parent = levelBoxStroke
@@ -110,7 +114,7 @@ local function createBar(name, yPos, height, width, barColor, xPos)
 	barBg.Name = name .. "Bg"
 	barBg.Size = UDim2.new(1, -cutSize, 1, 0)
 	barBg.Position = UDim2.new(0, cutSize, 0, 0)
-	barBg.BackgroundColor3 = COLORS.BarWhite
+	barBg.BackgroundColor3 = COLORS.BarBg
 	barBg.BorderSizePixel = 0
 	barBg.Parent = canvas
 
@@ -118,7 +122,7 @@ local function createBar(name, yPos, height, width, barColor, xPos)
 	bgCut.Name = name .. "BgCut"
 	bgCut.Size = UDim2.new(0, cutSize, 0, height)
 	bgCut.Position = UDim2.new(0, 0, 0, 0)
-	bgCut.BackgroundColor3 = COLORS.BarWhite
+	bgCut.BackgroundColor3 = COLORS.BarBg
 	bgCut.BorderSizePixel = 0
 	bgCut.Parent = canvas
 
@@ -192,7 +196,7 @@ local healthBarCut = healthMask:FindFirstChild("HealthBarCut")
 local buttonsContainer = Instance.new("Frame")
 buttonsContainer.Name = "ButtonsContainer"
 buttonsContainer.Size = UDim2.new(0, 84, 0, 24)
-buttonsContainer.Position = UDim2.new(0, 280, 0, 15)
+buttonsContainer.Position = UDim2.new(0, 310, 0, 15)
 buttonsContainer.BackgroundTransparency = 1
 buttonsContainer.Parent = hudContainer
 
@@ -205,19 +209,10 @@ shopButton.Image = "rbxassetid://11385395241"
 shopButton.ScaleType = Enum.ScaleType.Fit
 shopButton.Parent = buttonsContainer
 
-local characterButton = Instance.new("ImageButton")
-characterButton.Name = "CharacterButton"
-characterButton.Size = UDim2.new(0, 18, 0, 18)
-characterButton.Position = UDim2.new(0, 24, 0, 0)
-characterButton.BackgroundTransparency = 1
-characterButton.Image = "rbxassetid://7992557358" -- Иконка персонажа
-characterButton.ScaleType = Enum.ScaleType.Fit
-characterButton.Parent = buttonsContainer
-
 local settingsButton = Instance.new("ImageButton")
 settingsButton.Name = "SettingsButton"
 settingsButton.Size = UDim2.new(0, 18, 0, 18)
-settingsButton.Position = UDim2.new(0, 48, 0, 0)
+settingsButton.Position = UDim2.new(0, 24, 0, 0)
 settingsButton.BackgroundTransparency = 1
 settingsButton.Image = "rbxassetid://105466965551651"
 settingsButton.ScaleType = Enum.ScaleType.Fit
@@ -345,16 +340,6 @@ shopButton.MouseLeave:Connect(function()
 	mouse.Icon = ""
 end)
 
-characterButton.MouseEnter:Connect(function()
-	TweenService:Create(characterButton, TweenInfo.new(0.1), {ImageTransparency = 0.3}):Play()
-	hoverSound:Play()
-	mouse.Icon = HOVER_CURSOR
-end)
-characterButton.MouseLeave:Connect(function()
-	TweenService:Create(characterButton, TweenInfo.new(0.1), {ImageTransparency = 0}):Play()
-	mouse.Icon = ""
-end)
-
 settingsButton.MouseEnter:Connect(function()
 	TweenService:Create(settingsButton, TweenInfo.new(0.1), {ImageTransparency = 0.3}):Play()
 	hoverSound:Play()
@@ -368,8 +353,6 @@ end)
 -- === ПОДКЛЮЧЕНИЕ МЕНЮ НАСТРОЕК ===
 local SettingsMenu = require(ReplicatedStorage:WaitForChild("SettingsMenu"))
 
--- === ПОДКЛЮЧЕНИЕ МЕНЮ МАГАЗИНА ===
-local ShopMenu = require(ReplicatedStorage:WaitForChild("ShopMenu"))
 
 -- === ПОДКЛЮЧЕНИЕ МЕНЮ ИНВЕНТАРЯ ===
 local InventoryMenu = require(ReplicatedStorage:WaitForChild("InventoryMenu"))
@@ -380,17 +363,12 @@ local CharacterPanel = require(ReplicatedStorage:WaitForChild("CharacterPanel"))
 -- === CLICK ЭФФЕКТЫ ДЛЯ КНОПОК HUD ===
 shopButton.MouseButton1Click:Connect(function()
 	clickSound:Play()
-	ShopMenu.Toggle()
-end)
-
-characterButton.MouseButton1Click:Connect(function()
-	clickSound:Play()
-	CharacterPanel.Toggle()
+	CharacterPanel.OpenWithTab("STORE")
 end)
 
 settingsButton.MouseButton1Click:Connect(function()
 	clickSound:Play()
-	SettingsMenu.Toggle()
+	CharacterPanel.OpenWithTab("SETTINGS")
 end)
 
 -- === СОБЫТИЯ ===
@@ -461,7 +439,6 @@ local isHUDHidden = false
 local function resetButtonHovers()
 	-- Сбрасываем hover эффекты всех кнопок
 	shopButton.ImageTransparency = 0
-	characterButton.ImageTransparency = 0
 	settingsButton.ImageTransparency = 0
 	mouse.Icon = ""
 end
@@ -469,15 +446,15 @@ end
 local function hideHUD()
 	if isHUDHidden then return end
 	isHUDHidden = true
-	
+
 	-- Сбрасываем hover эффекты кнопок
 	resetButtonHovers()
-	
+
 	-- Отключаем 3D компонент (это удалит Part из CurrentCamera)
 	if HUD3D then
 		HUD3D:Disable()
 	end
-	
+
 	-- Скрываем 2D контейнер
 	hudContainer.Visible = false
 end
@@ -485,10 +462,10 @@ end
 local function showHUD()
 	if not isHUDHidden then return end
 	isHUDHidden = false
-	
+
 	-- Показываем 2D контейнер
 	hudContainer.Visible = true
-	
+
 	-- Включаем 3D компонент обратно
 	if HUD3D then
 		HUD3D:Enable()
@@ -505,7 +482,7 @@ local function setupGUIEvents()
 		hideEvent.Parent = player
 	end
 	hideEvent.Event:Connect(hideHUD)
-	
+
 	-- Событие показа
 	local showEvent = player:FindFirstChild("ShowGUIEvent")
 	if not showEvent then
@@ -529,9 +506,6 @@ HUD.ShowHUD = showHUD
 HUD.OpenSettings = SettingsMenu.Open
 HUD.CloseSettings = SettingsMenu.Close
 HUD.ToggleSettings = SettingsMenu.Toggle
-HUD.OpenShop = ShopMenu.Open
-HUD.CloseShop = ShopMenu.Close
-HUD.ToggleShop = ShopMenu.Toggle
 HUD.OpenInventory = InventoryMenu.Open
 HUD.CloseInventory = InventoryMenu.Close
 HUD.ToggleInventory = InventoryMenu.Toggle

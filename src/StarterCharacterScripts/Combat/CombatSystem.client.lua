@@ -44,6 +44,7 @@ local switchWeaponEvent = remoteFolder and remoteFolder:WaitForChild("SwitchWeap
 local getEquippedFunc = remoteFolder and remoteFolder:WaitForChild("GetEquipped", 10)
 local getActiveWeaponFunc = remoteFolder and remoteFolder:WaitForChild("GetActiveWeapon", 10)
 local equipItemEvent = remoteFolder and remoteFolder:WaitForChild("EquipItem", 10)
+local blockSyncEvent = remoteFolder and remoteFolder:WaitForChild("BlockSyncEvent", 10)
 
 -- === СИСТЕМА ОРУЖИЯ ===
 local activeWeaponSlot = nil -- "PRIMARY", "SECONDARY" или nil (кулаки)
@@ -1145,25 +1146,45 @@ local function performAttack(attackType)
 	-- Тратим стамину
 	useStamina(attackData.staminaCost)
 
-	-- Звук взмаха (разные для кулаков и меча)
-	if hasWeapon then
-		-- Звуки меча
-		if attackType == "Light" then
-			swordSwingSound.PlaybackSpeed = 0.9 + math.random() * 0.2
-			swordSwingSound:Play()
+	-- Определяем задержку для VFX и звука (для тяжёлых ударов топором)
+	local isAxeHeavy = weaponName == "Axe" and attackType == "Heavy"
+	local swingDelay = isAxeHeavy and (attackData.hitTime * 0.7) or 0 -- 70% от hitTime для топора
+
+	-- Функция воспроизведения звука свинга
+	local function playSwingSound()
+		if hasWeapon then
+			-- Звуки меча/топора
+			if attackType == "Light" then
+				swordSwingSound.PlaybackSpeed = 0.9 + math.random() * 0.2
+				swordSwingSound:Play()
+			else
+				swordHeavySwingSound.PlaybackSpeed = 0.8 + math.random() * 0.2
+				swordHeavySwingSound:Play()
+			end
 		else
-			swordHeavySwingSound.PlaybackSpeed = 0.8 + math.random() * 0.2
-			swordHeavySwingSound:Play()
+			-- Звуки кулаков
+			if attackType == "Light" then
+				swingSound.PlaybackSpeed = 0.9 + math.random() * 0.2
+				swingSound:Play()
+			else
+				heavySwingSound.PlaybackSpeed = 0.8 + math.random() * 0.2
+				heavySwingSound:Play()
+			end
 		end
+	end
+
+	-- Функция создания VFX свинга
+	local function playSwingVFX()
+		createSwingEffect(attackType, attackIndex, hasWeapon)
+	end
+
+	-- Звук и VFX с задержкой для тяжёлых ударов топором
+	if swingDelay > 0 then
+		task.delay(swingDelay, playSwingSound)
+		task.delay(swingDelay, playSwingVFX)
 	else
-		-- Звуки кулаков
-		if attackType == "Light" then
-			swingSound.PlaybackSpeed = 0.9 + math.random() * 0.2
-			swingSound:Play()
-		else
-			heavySwingSound.PlaybackSpeed = 0.8 + math.random() * 0.2
-			heavySwingSound:Play()
-		end
+		playSwingSound()
+		playSwingVFX()
 	end
 
 	-- Анимация - выбираем из нужного массива в зависимости от оружия
@@ -1179,9 +1200,6 @@ local function performAttack(attackType)
 		animArray = attackType == "Light" and lightAttackAnims or heavyAttackAnims
 		print("CombatSystem: Using fist animations for", attackType)
 	end
-
-	-- VFX свинга (след от удара) - вызываем ДО анимации чтобы слэш появлялся раньше
-	createSwingEffect(attackType, attackIndex, hasWeapon)
 
 	local animIndex = math.min(attackIndex, #animArray)
 	currentAttackTrack = animArray[animIndex]
@@ -1251,9 +1269,10 @@ end
 
 
 -- === БЛОКИРОВАНИЕ ===
--- Создаём значение для сервера
-local blockingValue = character:FindFirstChild("IsBlocking")
+-- Получаем значение для сервера (создаётся на сервере в PlayerDataManager)
+local blockingValue = character:WaitForChild("IsBlocking", 5)
 if not blockingValue then
+	-- Fallback если сервер не создал
 	blockingValue = Instance.new("BoolValue")
 	blockingValue.Name = "IsBlocking"
 	blockingValue.Value = false
@@ -1263,8 +1282,193 @@ end
 local blockShield = nil
 local blockShieldConnection = nil
 
+-- === СИСТЕМА ПРОЧНОСТИ БЛОКА ===
+local blockDurability = CombatConfig.Block.MaxDurability
+local lastBlockHitTime = 0
+local blockRegenConnection = nil
+local blockBroken = false -- Флаг сломанного блока
+
+-- Получаем значение прочности для UI (создаётся на сервере)
+local blockDurabilityValue = character:WaitForChild("BlockDurability", 5)
+if not blockDurabilityValue then
+	blockDurabilityValue = Instance.new("NumberValue")
+	blockDurabilityValue.Name = "BlockDurability"
+	blockDurabilityValue.Value = blockDurability
+	blockDurabilityValue.Parent = character
+end
+
+-- Звук ломания блока
+local blockBreakSound = createSound(rootPart, "rbxassetid://9116689911", 0.8)
+
+-- Функция создания VFX щита (Shield-01)
+local function createShieldVFX()
+	if blockShield then return end
+	
+	if not FxFolder then return end
+	local shieldTemplate = FxFolder:FindFirstChild("Shield-01")
+	if not shieldTemplate then return end
+	
+	-- Клонируем эффект
+	blockShield = shieldTemplate:Clone()
+	
+	if blockShield:IsA("BasePart") then
+		blockShield.Transparency = 1
+		blockShield.CanCollide = false
+		blockShield.Massless = true
+		blockShield.Anchored = true
+		blockShield.CFrame = rootPart.CFrame * CFrame.new(0, 0, -2)
+		blockShield.Parent = workspace
+		
+		-- Запускаем частицы
+		for _, child in ipairs(blockShield:GetDescendants()) do
+			if child:IsA("ParticleEmitter") then
+				child.Enabled = true
+			end
+		end
+		
+		-- Следуем за игроком
+		blockShieldConnection = RunService.Heartbeat:Connect(function()
+			if blockShield and blockShield.Parent and rootPart and rootPart.Parent then
+				blockShield.CFrame = rootPart.CFrame * CFrame.new(0, 0, -2)
+			end
+		end)
+	end
+end
+
+-- Функция удаления VFX щита
+local function removeShieldVFX()
+	if blockShieldConnection then
+		blockShieldConnection:Disconnect()
+		blockShieldConnection = nil
+	end
+	
+	if blockShield then
+		-- Останавливаем частицы
+		for _, child in ipairs(blockShield:GetDescendants()) do
+			if child:IsA("ParticleEmitter") then
+				child.Enabled = false
+			end
+		end
+		task.delay(0.5, function()
+			if blockShield and blockShield.Parent then
+				blockShield:Destroy()
+			end
+			blockShield = nil
+		end)
+	end
+end
+
+-- Функция VFX ломания блока (Shield-Break-01)
+local function createBlockBreakVFX()
+	if not FxFolder then return end
+	local breakTemplate = FxFolder:FindFirstChild("Shield-Break-01")
+	if not breakTemplate then return end
+	
+	local breakEffect = breakTemplate:Clone()
+	
+	if breakEffect:IsA("BasePart") then
+		breakEffect.Transparency = 1
+		breakEffect.CanCollide = false
+		breakEffect.Massless = true
+		breakEffect.Anchored = true
+		breakEffect.CFrame = rootPart.CFrame * CFrame.new(0, 0, -2)
+		breakEffect.Parent = workspace
+		
+		-- Запускаем частицы один раз
+		for _, child in ipairs(breakEffect:GetDescendants()) do
+			if child:IsA("ParticleEmitter") then
+				child.Enabled = false
+				local emitCount = child:GetAttribute("EmitCount") or 20
+				child:Emit(emitCount)
+			end
+		end
+		
+		-- Удаляем через время
+		Debris:AddItem(breakEffect, 2)
+	end
+end
+
+-- Forward declaration для stopBlock (определена ниже)
+local stopBlock
+
+-- Функция получения урона по блоку
+local function damageBlock(damage, isHeavyAttack)
+	if not isBlocking then return false end
+	
+	local durabilityDrain = isHeavyAttack and CombatConfig.Block.HeavyDurabilityDrain or CombatConfig.Block.DurabilityDrain
+	blockDurability = math.max(0, blockDurability - durabilityDrain)
+	blockDurabilityValue.Value = blockDurability
+	lastBlockHitTime = tick()
+	
+	-- Тряска камеры при блоке
+	shakeCamera(0.2, 0.15)
+	
+	-- Проверяем сломался ли блок
+	if blockDurability <= 0 then
+		-- Блок сломан!
+		blockBroken = true
+		
+		-- VFX и звук ломания
+		createBlockBreakVFX()
+		blockBreakSound:Play()
+		
+		-- Принудительно останавливаем блок
+		stopBlock()
+		
+		-- Стан игрока
+		isStaggered = true
+		CombatConfig.IsStaggered = true
+		humanoid.WalkSpeed = 0
+		
+		-- Сильная тряска камеры
+		shakeCamera(0.6, 0.4)
+		
+		-- Восстановление после стана
+		task.delay(CombatConfig.Block.BreakStunDuration, function()
+			isStaggered = false
+			CombatConfig.IsStaggered = false
+			blockBroken = false
+			blockDurability = CombatConfig.Block.MaxDurability
+			blockDurabilityValue.Value = blockDurability
+			if not isAttacking and not isBlocking then
+				humanoid.WalkSpeed = NORMAL_WALK_SPEED
+			end
+		end)
+		
+		return true -- Блок сломан
+	end
+	
+	return false -- Блок выдержал
+end
+
+-- Восстановление прочности блока
+local function startBlockRegen()
+	if blockRegenConnection then return end
+	
+	blockRegenConnection = RunService.Heartbeat:Connect(function(dt)
+		if blockBroken then return end
+		
+		local timeSinceHit = tick() - lastBlockHitTime
+		if timeSinceHit >= CombatConfig.Block.RegenDelay and blockDurability < CombatConfig.Block.MaxDurability then
+			blockDurability = math.min(CombatConfig.Block.MaxDurability, blockDurability + CombatConfig.Block.RegenRate * dt)
+			blockDurabilityValue.Value = blockDurability
+		end
+	end)
+end
+
+startBlockRegen()
+
+-- Слушаем события попадания по блоку от сервера
+local blockHitEvent = ReplicatedStorage:WaitForChild("BlockHitEvent", 10)
+if blockHitEvent then
+	blockHitEvent.OnClientEvent:Connect(function(incomingDamage, isHeavyAttack)
+		damageBlock(incomingDamage, isHeavyAttack)
+	end)
+end
+
 local function startBlock()
 	if isAttacking or isStaggered then return end
+	if blockBroken then return end -- Нельзя блокировать пока блок сломан
 
 	-- Проверяем диалог
 	local inDialogue = player:FindFirstChild("InDialogue")
@@ -1284,6 +1488,11 @@ local function startBlock()
 	isBlocking = true
 	CombatConfig.IsBlocking = true
 	blockingValue.Value = true
+	
+	-- Синхронизируем с сервером
+	if blockSyncEvent then
+		blockSyncEvent:FireServer(true)
+	end
 
 	humanoid.WalkSpeed = BLOCK_WALK_SPEED
 
@@ -1298,6 +1507,9 @@ local function startBlock()
 		currentBlockTrack:Play(0.15)
 	end
 
+	-- Создаём VFX щита
+	createShieldVFX()
+
 	-- Звук блока (разный для кулаков и меча)
 	local hasWeapon = hasWeaponInHand()
 	if hasWeapon then
@@ -1310,26 +1522,25 @@ local function startBlock()
 	combatEvent:Fire("block", true)
 end
 
-local function stopBlock()
+stopBlock = function()
 	if not isBlocking then return end
 
 	isBlocking = false
 	CombatConfig.IsBlocking = false
 	blockingValue.Value = false
+	
+	-- Синхронизируем с сервером
+	if blockSyncEvent then
+		blockSyncEvent:FireServer(false)
+	end
 
 	-- Останавливаем анимацию блока
 	if currentBlockTrack then
 		currentBlockTrack:Stop(0.2)
 	end
 
-	if blockShield then
-		blockShield:Destroy()
-		blockShield = nil
-	end
-	if blockShieldConnection then
-		blockShieldConnection:Disconnect()
-		blockShieldConnection = nil
-	end
+	-- Удаляем VFX щита
+	removeShieldVFX()
 
 	if not isAttacking then
 		humanoid.WalkSpeed = NORMAL_WALK_SPEED
@@ -1640,13 +1851,13 @@ humanoid.Died:Connect(function()
 		lockOnIndicator:Destroy()
 	end
 
-	if blockShield then
-		blockShield:Destroy()
-		blockShield = nil
-	end
-	if blockShieldConnection then
-		blockShieldConnection:Disconnect()
-		blockShieldConnection = nil
+	-- Удаляем VFX щита
+	removeShieldVFX()
+	
+	-- Останавливаем восстановление блока
+	if blockRegenConnection then
+		blockRegenConnection:Disconnect()
+		blockRegenConnection = nil
 	end
 
 	if currentAttackTrack then

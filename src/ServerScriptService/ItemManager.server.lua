@@ -43,6 +43,17 @@ local ITEM_DATA = {
 		value = 150,
 		damage = 25,
 	},
+	["Axe"] = {
+		name = "Axe",
+		displayName = "Battle Axe",
+		itemType = "Weapon",
+		description = "A heavy battle axe with devastating power. Slower than a sword but deals significantly more damage per hit.",
+		stackable = false,
+		maxStack = 1,
+		weight = 5.0,
+		value = 200,
+		damage = 35,
+	},
 }
 
 -- === ИНВЕНТАРИ ИГРОКОВ ===
@@ -419,6 +430,11 @@ local ITEM_EQUIP_OFFSETS = {
 		IN_HAND = CFrame.new(0, -1, -1.4) * CFrame.Angles(math.rad(0), math.rad(180), math.rad(90)),
 		ON_BACK_PRIMARY = CFrame.new(0, 0.4, 0.5) * CFrame.Angles(math.rad(-90), math.rad(225), 0),
 		ON_BACK_SECONDARY = CFrame.new(0, 0.4, 0.5) * CFrame.Angles(math.rad(-90), math.rad(225), 0),
+	},
+	["Axe"] = {
+		IN_HAND = CFrame.new(0, -1, -1.4) * CFrame.Angles(math.rad(0), math.rad(180), math.rad(90)),
+		ON_BACK_PRIMARY = CFrame.new(0.3, 0.4, 0.5) * CFrame.Angles(math.rad(-90), math.rad(225), 0),
+		ON_BACK_SECONDARY = CFrame.new(-0.3, 0.4, 0.5) * CFrame.Angles(math.rad(-90), math.rad(225), 0),
 	},
 }
 

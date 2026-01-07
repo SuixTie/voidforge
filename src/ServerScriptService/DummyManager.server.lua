@@ -29,10 +29,30 @@ local CONFIG = {
 	RagdollDuration = 4,       -- Время рагдолла перед исчезновением
 	DummyNames = {"TrainingDummy", "Dummy", "CombatDummy"}, -- Имена для поиска
 	IdleAnimationId = "rbxassetid://118776133928639", -- Idle анимация для R6
+	
+	-- Новые типы дамми
+	FightingDummyNames = {"FightingDummy", "AttackDummy"}, -- Атакующий дамми
+	BlockingDummyNames = {"BlockingDummy", "BlockDummy"}, -- Блокирующий дамми
+	
+	-- Настройки атакующего дамми
+	FightingDummy = {
+		AttackRange = 6,           -- Дистанция атаки
+		AttackCooldown = 1.5,      -- Кулдаун между атаками
+		Damage = 10,               -- Урон за удар
+		AttackAnimationId = "rbxassetid://137575236164710", -- Анимация удара
+	},
+	
+	-- Настройки блокирующего дамми
+	BlockingDummy = {
+		BlockAnimationId = "rbxassetid://73242144324267", -- Анимация блока
+		DamageReduction = 0.7,     -- Снижение урона при блоке (70%)
+	},
 }
 
 -- === ХРАНИЛИЩЕ ДАММИ ===
 local dummySpawnPoints = {} -- [dummy] = CFrame
+local fightingDummies = {} -- [dummy] = {target, lastAttack, etc}
+local blockingDummies = {} -- [dummy] = {blockTrack}
 
 -- === ФУНКЦИЯ ВОСПРОИЗВЕДЕНИЯ IDLE АНИМАЦИИ ===
 local function playIdleAnimation(dummy)
@@ -188,12 +208,240 @@ local function setupDummy(dummy, originalTemplate)
 	print("DummyManager: Setup complete for", dummy.Name)
 end
 
+-- === ФУНКЦИЯ НАСТРОЙКИ АТАКУЮЩЕГО ДАММИ ===
+local function setupFightingDummy(dummy, originalTemplate)
+	local humanoid = dummy:FindFirstChild("Humanoid")
+	local rootPart = dummy:FindFirstChild("HumanoidRootPart")
+
+	if not humanoid or not rootPart then
+		warn("DummyManager: Invalid fighting dummy model -", dummy.Name)
+		return
+	end
+
+	-- Сохраняем точку спавна
+	local spawnCFrame = rootPart.CFrame
+	dummySpawnPoints[dummy] = spawnCFrame
+
+	-- Настраиваем Humanoid
+	humanoid.MaxHealth = CONFIG.MaxHealth
+	humanoid.Health = CONFIG.MaxHealth
+	humanoid.BreakJointsOnDeath = false
+	humanoid.WalkSpeed = 0 -- Стоит на месте
+	humanoid.JumpPower = 0
+	humanoid.JumpHeight = 0
+
+	-- Создаём Animator если нет
+	local animator = humanoid:FindFirstChildOfClass("Animator")
+	if not animator then
+		animator = Instance.new("Animator")
+		animator.Parent = humanoid
+	end
+
+	-- Загружаем анимации
+	local idleAnim = Instance.new("Animation")
+	idleAnim.AnimationId = CONFIG.IdleAnimationId
+	local idleTrack = animator:LoadAnimation(idleAnim)
+	idleTrack.Priority = Enum.AnimationPriority.Idle
+	idleTrack.Looped = true
+	idleTrack:Play()
+
+	local attackAnim = Instance.new("Animation")
+	attackAnim.AnimationId = CONFIG.FightingDummy.AttackAnimationId
+	local attackTrack = animator:LoadAnimation(attackAnim)
+	attackTrack.Priority = Enum.AnimationPriority.Action2
+
+	-- Данные для AI
+	fightingDummies[dummy] = {
+		target = nil,
+		lastAttackTime = 0,
+		isAttacking = false,
+		idleTrack = idleTrack,
+		attackTrack = attackTrack,
+	}
+
+	-- AI Loop - стоит на месте и бьёт если игрок рядом
+	local aiConnection
+	aiConnection = game:GetService("RunService").Heartbeat:Connect(function()
+		if not dummy or not dummy.Parent then
+			aiConnection:Disconnect()
+			fightingDummies[dummy] = nil
+			return
+		end
+
+		local dummyData = fightingDummies[dummy]
+		if not dummyData then return end
+
+		-- Ищем ближайшего игрока в радиусе атаки
+		local closestPlayer = nil
+		local closestDistance = CONFIG.FightingDummy.AttackRange
+
+		for _, plr in ipairs(Players:GetPlayers()) do
+			local char = plr.Character
+			if char then
+				local plrRoot = char:FindFirstChild("HumanoidRootPart")
+				local plrHumanoid = char:FindFirstChild("Humanoid")
+				if plrRoot and plrHumanoid and plrHumanoid.Health > 0 then
+					local distance = (plrRoot.Position - rootPart.Position).Magnitude
+					if distance < closestDistance then
+						closestDistance = distance
+						closestPlayer = char
+					end
+				end
+			end
+		end
+
+		dummyData.target = closestPlayer
+
+		if closestPlayer then
+			local targetRoot = closestPlayer:FindFirstChild("HumanoidRootPart")
+			if targetRoot then
+				-- Поворачиваемся к цели
+				local lookAt = CFrame.lookAt(rootPart.Position, Vector3.new(targetRoot.Position.X, rootPart.Position.Y, targetRoot.Position.Z))
+				rootPart.CFrame = rootPart.CFrame:Lerp(lookAt, 0.1)
+
+				-- Атакуем если можем
+				local now = tick()
+				if not dummyData.isAttacking and (now - dummyData.lastAttackTime) >= CONFIG.FightingDummy.AttackCooldown then
+					dummyData.isAttacking = true
+					dummyData.lastAttackTime = now
+
+					-- Играем анимацию атаки
+					attackTrack:Play()
+
+					-- Наносим урон через небольшую задержку (в момент удара)
+					task.delay(0.3, function()
+						if dummy and dummy.Parent and closestPlayer and closestPlayer.Parent then
+							local targetHumanoid = closestPlayer:FindFirstChild("Humanoid")
+							local targetRoot2 = closestPlayer:FindFirstChild("HumanoidRootPart")
+							if targetHumanoid and targetRoot2 then
+								local dist = (targetRoot2.Position - rootPart.Position).Magnitude
+								if dist <= CONFIG.FightingDummy.AttackRange + 2 then
+									-- Проверяем блокирует ли игрок
+									local isBlockingValue = closestPlayer:FindFirstChild("IsBlocking")
+									local isPlayerBlocking = isBlockingValue and isBlockingValue:IsA("BoolValue") and isBlockingValue.Value == true
+									
+									if isPlayerBlocking then
+										-- Игрок блокирует - урон не проходит, но уведомляем о попадании по блоку
+										local blockHitEvent = ReplicatedStorage:FindFirstChild("BlockHitEvent")
+										local targetPlayer = Players:GetPlayerFromCharacter(closestPlayer)
+										if blockHitEvent and targetPlayer then
+											blockHitEvent:FireClient(targetPlayer, CONFIG.FightingDummy.Damage, false)
+										end
+									else
+										-- Игрок не блокирует - наносим урон
+										targetHumanoid:TakeDamage(CONFIG.FightingDummy.Damage)
+									end
+								end
+							end
+						end
+						dummyData.isAttacking = false
+					end)
+				end
+			end
+		end
+	end)
+
+	-- Обработка смерти
+	humanoid.Died:Connect(function()
+		if aiConnection then aiConnection:Disconnect() end
+		fightingDummies[dummy] = nil
+
+		if idleTrack then idleTrack:Stop() end
+		if attackTrack then attackTrack:Stop() end
+
+		playDeathSound(dummy)
+		applyRagdoll(dummy)
+
+		task.delay(CONFIG.RagdollDuration, function()
+			if dummy and dummy.Parent then
+				dummy:Destroy()
+			end
+		end)
+
+		task.delay(CONFIG.RespawnTime, function()
+			local newDummy = cloneDummy(originalTemplate, spawnCFrame)
+			setupFightingDummy(newDummy, originalTemplate)
+		end)
+	end)
+
+	print("DummyManager: Fighting dummy setup complete for", dummy.Name)
+end
+
+-- === ФУНКЦИЯ НАСТРОЙКИ БЛОКИРУЮЩЕГО ДАММИ ===
+local function setupBlockingDummy(dummy, originalTemplate)
+	local humanoid = dummy:FindFirstChild("Humanoid")
+	local rootPart = dummy:FindFirstChild("HumanoidRootPart")
+
+	if not humanoid or not rootPart then
+		warn("DummyManager: Invalid blocking dummy model -", dummy.Name)
+		return
+	end
+
+	-- Сохраняем точку спавна
+	local spawnCFrame = rootPart.CFrame
+	dummySpawnPoints[dummy] = spawnCFrame
+
+	-- Настраиваем Humanoid
+	humanoid.MaxHealth = CONFIG.MaxHealth
+	humanoid.Health = CONFIG.MaxHealth
+	humanoid.BreakJointsOnDeath = false
+	humanoid.WalkSpeed = 0
+	humanoid.JumpPower = 0
+	humanoid.JumpHeight = 0
+
+	-- Устанавливаем атрибут блока для боевой системы
+	dummy:SetAttribute("IsBlocking", true)
+	dummy:SetAttribute("BlockDamageReduction", CONFIG.BlockingDummy.DamageReduction)
+
+	-- Создаём Animator если нет
+	local animator = humanoid:FindFirstChildOfClass("Animator")
+	if not animator then
+		animator = Instance.new("Animator")
+		animator.Parent = humanoid
+	end
+
+	-- Загружаем анимацию блока
+	local blockAnim = Instance.new("Animation")
+	blockAnim.AnimationId = CONFIG.BlockingDummy.BlockAnimationId
+	local blockTrack = animator:LoadAnimation(blockAnim)
+	blockTrack.Priority = Enum.AnimationPriority.Action
+	blockTrack.Looped = true
+	blockTrack:Play()
+
+	blockingDummies[dummy] = {
+		blockTrack = blockTrack,
+	}
+
+	-- Обработка смерти
+	humanoid.Died:Connect(function()
+		blockingDummies[dummy] = nil
+
+		if blockTrack then blockTrack:Stop() end
+
+		playDeathSound(dummy)
+		applyRagdoll(dummy)
+
+		task.delay(CONFIG.RagdollDuration, function()
+			if dummy and dummy.Parent then
+				dummy:Destroy()
+			end
+		end)
+
+		task.delay(CONFIG.RespawnTime, function()
+			local newDummy = cloneDummy(originalTemplate, spawnCFrame)
+			setupBlockingDummy(newDummy, originalTemplate)
+		end)
+	end)
+
+	print("DummyManager: Blocking dummy setup complete for", dummy.Name)
+end
+
 -- === ПОИСК И НАСТРОЙКА ВСЕХ ДАММИ ===
 local function findAndSetupDummies()
 	print("DummyManager: Searching for dummies...")
 	local foundCount = 0
 
-	-- Ищем по именам
+	-- Ищем обычных дамми по именам
 	for _, name in ipairs(CONFIG.DummyNames) do
 		for _, dummy in ipairs(workspace:GetDescendants()) do
 			if dummy:IsA("Model") and dummy.Name == name then
@@ -205,12 +453,56 @@ local function findAndSetupDummies()
 		end
 	end
 
+	-- Ищем атакующих дамми
+	for _, name in ipairs(CONFIG.FightingDummyNames) do
+		for _, dummy in ipairs(workspace:GetDescendants()) do
+			if dummy:IsA("Model") and dummy.Name == name and not dummySpawnPoints[dummy] then
+				print("DummyManager: Found fighting dummy by name:", dummy.Name)
+				local template = dummy:Clone()
+				setupFightingDummy(dummy, template)
+				foundCount = foundCount + 1
+			end
+		end
+	end
+
+	-- Ищем блокирующих дамми
+	for _, name in ipairs(CONFIG.BlockingDummyNames) do
+		for _, dummy in ipairs(workspace:GetDescendants()) do
+			if dummy:IsA("Model") and dummy.Name == name and not dummySpawnPoints[dummy] then
+				print("DummyManager: Found blocking dummy by name:", dummy.Name)
+				local template = dummy:Clone()
+				setupBlockingDummy(dummy, template)
+				foundCount = foundCount + 1
+			end
+		end
+	end
+
 	-- Ищем по тегу
 	for _, dummy in ipairs(CollectionService:GetTagged("Dummy")) do
 		if dummy:IsA("Model") and not dummySpawnPoints[dummy] then
 			print("DummyManager: Found dummy by tag:", dummy.Name)
 			local template = dummy:Clone()
 			setupDummy(dummy, template)
+			foundCount = foundCount + 1
+		end
+	end
+
+	-- Ищем по тегу FightingDummy
+	for _, dummy in ipairs(CollectionService:GetTagged("FightingDummy")) do
+		if dummy:IsA("Model") and not dummySpawnPoints[dummy] then
+			print("DummyManager: Found fighting dummy by tag:", dummy.Name)
+			local template = dummy:Clone()
+			setupFightingDummy(dummy, template)
+			foundCount = foundCount + 1
+		end
+	end
+
+	-- Ищем по тегу BlockingDummy
+	for _, dummy in ipairs(CollectionService:GetTagged("BlockingDummy")) do
+		if dummy:IsA("Model") and not dummySpawnPoints[dummy] then
+			print("DummyManager: Found blocking dummy by tag:", dummy.Name)
+			local template = dummy:Clone()
+			setupBlockingDummy(dummy, template)
 			foundCount = foundCount + 1
 		end
 	end
@@ -365,12 +657,36 @@ end)
 -- Также ищем при добавлении новых объектов в workspace
 workspace.DescendantAdded:Connect(function(descendant)
 	if descendant:IsA("Model") then
+		-- Проверяем обычных дамми
 		for _, name in ipairs(CONFIG.DummyNames) do
 			if descendant.Name == name and not dummySpawnPoints[descendant] then
 				print("DummyManager: New dummy added:", descendant.Name)
 				task.wait(0.1)
 				local template = descendant:Clone()
 				setupDummy(descendant, template)
+				return
+			end
+		end
+
+		-- Проверяем атакующих дамми
+		for _, name in ipairs(CONFIG.FightingDummyNames) do
+			if descendant.Name == name and not dummySpawnPoints[descendant] then
+				print("DummyManager: New fighting dummy added:", descendant.Name)
+				task.wait(0.1)
+				local template = descendant:Clone()
+				setupFightingDummy(descendant, template)
+				return
+			end
+		end
+
+		-- Проверяем блокирующих дамми
+		for _, name in ipairs(CONFIG.BlockingDummyNames) do
+			if descendant.Name == name and not dummySpawnPoints[descendant] then
+				print("DummyManager: New blocking dummy added:", descendant.Name)
+				task.wait(0.1)
+				local template = descendant:Clone()
+				setupBlockingDummy(descendant, template)
+				return
 			end
 		end
 	end
@@ -385,9 +701,27 @@ CollectionService:GetInstanceAddedSignal("Dummy"):Connect(function(dummy)
 	end
 end)
 
+CollectionService:GetInstanceAddedSignal("FightingDummy"):Connect(function(dummy)
+	if dummy:IsA("Model") and not dummySpawnPoints[dummy] then
+		task.wait(0.1)
+		local template = dummy:Clone()
+		setupFightingDummy(dummy, template)
+	end
+end)
+
+CollectionService:GetInstanceAddedSignal("BlockingDummy"):Connect(function(dummy)
+	if dummy:IsA("Model") and not dummySpawnPoints[dummy] then
+		task.wait(0.1)
+		local template = dummy:Clone()
+		setupBlockingDummy(dummy, template)
+	end
+end)
+
 -- === ЭКСПОРТ ДЛЯ ДРУГИХ СКРИПТОВ ===
 local DummyManager = {}
 DummyManager.CreateDummy = createDummy
+DummyManager.SetupFightingDummy = setupFightingDummy
+DummyManager.SetupBlockingDummy = setupBlockingDummy
 DummyManager.Config = CONFIG
 
 return DummyManager

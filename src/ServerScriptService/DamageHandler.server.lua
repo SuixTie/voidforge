@@ -12,19 +12,29 @@ local damageEvent = Instance.new("RemoteEvent")
 damageEvent.Name = "DamageEvent"
 damageEvent.Parent = ReplicatedStorage
 
+-- Создаём RemoteEvent для уведомления о блоке
+local blockHitEvent = Instance.new("RemoteEvent")
+blockHitEvent.Name = "BlockHitEvent"
+blockHitEvent.Parent = ReplicatedStorage
+
 -- Загружаем конфиг боевой системы
 local CombatConfig = require(ReplicatedStorage:WaitForChild("CombatConfig"))
 
 print("DamageHandler: RemoteEvent created")
 
--- Проверка блокирует ли игрок
+-- Проверка блокирует ли игрок/дамми
 local function isTargetBlocking(targetCharacter)
-	-- Проверяем есть ли у цели значение блока
+	-- Проверяем атрибут IsBlocking (для блокирующих дамми)
+	if targetCharacter:GetAttribute("IsBlocking") then
+		return true, targetCharacter:GetAttribute("BlockDamageReduction") or CombatConfig.Block.DamageReduction
+	end
+	
+	-- Проверяем есть ли у цели значение блока (для игроков)
 	local blockingValue = targetCharacter:FindFirstChild("IsBlocking")
 	if blockingValue and blockingValue.Value then
-		return true
+		return true, CombatConfig.Block.DamageReduction
 	end
-	return false
+	return false, 0
 end
 
 -- Проверка является ли цель неуязвимым NPC
@@ -34,7 +44,7 @@ local function isInvulnerableNPC(targetCharacter)
 end
 
 -- Обработка запроса на урон от клиента
-damageEvent.OnServerEvent:Connect(function(player, targetCharacter, damage, knockbackDirection, knockbackForce)
+damageEvent.OnServerEvent:Connect(function(player, targetCharacter, damage, knockbackDirection, knockbackForce, isHeavyAttack)
 	-- Проверяем что цель существует
 	if not targetCharacter or not targetCharacter:IsA("Model") then
 		return
@@ -73,16 +83,25 @@ damageEvent.OnServerEvent:Connect(function(player, targetCharacter, damage, knoc
 	local finalDamage = damage
 	local wasBlocked = false
 	
-	if isTargetBlocking(targetCharacter) then
-		-- Снижаем урон при блоке
-		finalDamage = damage * (1 - CombatConfig.Block.DamageReduction)
+	local blocking, damageReduction = isTargetBlocking(targetCharacter)
+	if blocking then
+		-- Блок полностью поглощает урон
+		finalDamage = 0
 		wasBlocked = true
-		print("DamageHandler: Attack blocked! Damage reduced from", damage, "to", finalDamage)
+		print("DamageHandler: Attack blocked! Damage absorbed")
+		
+		-- Уведомляем игрока-цель о попадании по блоку (для системы прочности)
+		local targetPlayer = Players:GetPlayerFromCharacter(targetCharacter)
+		if targetPlayer then
+			blockHitEvent:FireClient(targetPlayer, damage, isHeavyAttack or false)
+		end
 	end
 	
-	-- Наносим урон
-	targetHumanoid:TakeDamage(finalDamage)
-	print("DamageHandler: Dealt", finalDamage, "damage to", targetCharacter.Name, "- Health:", targetHumanoid.Health)
+	-- Наносим урон только если не заблокировано
+	if finalDamage > 0 then
+		targetHumanoid:TakeDamage(finalDamage)
+		print("DamageHandler: Dealt", finalDamage, "damage to", targetCharacter.Name, "- Health:", targetHumanoid.Health)
+	end
 	
 	-- Применяем отталкивание (меньше если заблокировано)
 	if targetRoot and knockbackDirection and knockbackForce then

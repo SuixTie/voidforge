@@ -16,16 +16,16 @@ local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 local mouse = player:GetMouse()
 
--- === ЦВЕТА CYBERPUNK ===
+-- === ЦВЕТА НЕОН-АНИМЕ ===
 local COLORS = {
-	Panel = Color3.fromRGB(15, 5, 30),
-	Border = Color3.fromRGB(255, 0, 128),
-	BorderDim = Color3.fromRGB(150, 0, 75),
-	Text = Color3.fromRGB(220, 240, 255),
-	TextDim = Color3.fromRGB(100, 140, 160),
-	Price = Color3.fromRGB(0, 255, 100),
-	Owned = Color3.fromRGB(0, 255, 255),
-	ItemBg = Color3.fromRGB(20, 8, 35),
+	Panel = Color3.fromRGB(15, 15, 35),
+	Border = Color3.fromRGB(255, 0, 255),           -- Розовый (магазин = деньги = розовый)
+	BorderDim = Color3.fromRGB(180, 0, 180),
+	Text = Color3.fromRGB(255, 255, 255),
+	TextDim = Color3.fromRGB(140, 140, 160),
+	Price = Color3.fromRGB(100, 255, 150),          -- Зелёный для цены
+	Owned = Color3.fromRGB(0, 255, 255),            -- Циан для "куплено"
+	ItemBg = Color3.fromRGB(25, 25, 50),
 }
 
 -- === ЗВУКИ ===

@@ -23,19 +23,19 @@ local moveItemEvent = remoteFolder and remoteFolder:WaitForChild("MoveItem", 5)
 local equipItemEvent = remoteFolder and remoteFolder:WaitForChild("EquipItem", 5)
 local getEquippedFunc = remoteFolder and remoteFolder:WaitForChild("GetEquipped", 5)
 
--- === ЦВЕТА CYBERPUNK ===
+-- === ЦВЕТА НЕОН-АНИМЕ ===
 local COLORS = {
-	Panel = Color3.fromRGB(15, 5, 30),
-	PanelDark = Color3.fromRGB(10, 3, 20),
-	Border = Color3.fromRGB(0, 255, 255),
-	BorderDim = Color3.fromRGB(0, 150, 150),
-	BorderDark = Color3.fromRGB(0, 80, 80),
-	Text = Color3.fromRGB(220, 240, 255),
-	TextDim = Color3.fromRGB(100, 140, 160),
-	SlotBg = Color3.fromRGB(20, 10, 40),
-	SlotEmpty = Color3.fromRGB(30, 15, 50),
-	Highlight = Color3.fromRGB(0, 255, 255),
-	Magenta = Color3.fromRGB(255, 0, 128),
+	Panel = Color3.fromRGB(15, 15, 35),
+	PanelDark = Color3.fromRGB(10, 10, 26),
+	Border = Color3.fromRGB(0, 255, 255),           -- Циан
+	BorderDim = Color3.fromRGB(0, 180, 180),
+	BorderDark = Color3.fromRGB(0, 100, 100),
+	Text = Color3.fromRGB(255, 255, 255),
+	TextDim = Color3.fromRGB(140, 140, 160),
+	SlotBg = Color3.fromRGB(25, 25, 50),
+	SlotEmpty = Color3.fromRGB(35, 35, 60),
+	Highlight = Color3.fromRGB(0, 255, 255),        -- Циан
+	Magenta = Color3.fromRGB(255, 0, 255),          -- Розовый
 }
 
 -- === ИНДИВИДУАЛЬНЫЕ ОРИЕНТАЦИИ ПРЕДМЕТОВ В СЛОТАХ ===
@@ -48,6 +48,10 @@ local ITEM_ORIENTATIONS = {
 	["Sword"] = {
 		position = Vector3.new(0, 0, 0),
 		rotation = Vector3.new(0, 0, -45),
+	},
+	["Axe"] = {
+		position = Vector3.new(0, 0, 0),
+		rotation = Vector3.new(0, 90, -45),
 	},
 }
 

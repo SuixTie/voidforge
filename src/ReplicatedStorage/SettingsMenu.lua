@@ -14,49 +14,49 @@ local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 local mouse = player:GetMouse()
 
--- === ЦВЕТА CYBERPUNK ===
+-- === ЦВЕТА НЕОН-АНИМЕ ===
 local COLORS = {
-	Background = Color3.fromRGB(10, 3, 20),
-	Panel = Color3.fromRGB(15, 5, 30),
-	Border = Color3.fromRGB(0, 255, 255),
-	BorderDim = Color3.fromRGB(0, 150, 150),
+	Background = Color3.fromRGB(10, 10, 26),
+	Panel = Color3.fromRGB(15, 15, 35),
+	Border = Color3.fromRGB(0, 255, 255),           -- Циан
+	BorderDim = Color3.fromRGB(0, 180, 180),
 	Header = Color3.fromRGB(0, 255, 255),
-	Text = Color3.fromRGB(220, 240, 255),
-	TextDim = Color3.fromRGB(100, 140, 160),
+	Text = Color3.fromRGB(255, 255, 255),
+	TextDim = Color3.fromRGB(140, 140, 160),
 	Active = Color3.fromRGB(0, 255, 255),
-	Inactive = Color3.fromRGB(60, 100, 120),
-	SliderBg = Color3.fromRGB(20, 10, 40),
+	Inactive = Color3.fromRGB(80, 80, 100),
+	SliderBg = Color3.fromRGB(25, 25, 50),
 	SliderFill = Color3.fromRGB(0, 255, 255),
-	ItemLine = Color3.fromRGB(0, 100, 100),
-	Accent = Color3.fromRGB(255, 0, 128), -- Розовый акцент
+	ItemLine = Color3.fromRGB(0, 120, 120),
+	Accent = Color3.fromRGB(255, 0, 255),           -- Розовый акцент
 }
 
--- === ЦВЕТА СЕКЦИЙ (единый киберпанк стиль) ===
+-- === ЦВЕТА СЕКЦИЙ (единый неон-аниме стиль) ===
 local SECTION_COLORS = {
 	VIDEO = {
 		accent = Color3.fromRGB(0, 255, 255),      -- Циан
-		accentDim = Color3.fromRGB(0, 150, 150),
-		accentDark = Color3.fromRGB(0, 80, 80),
+		accentDim = Color3.fromRGB(0, 180, 180),
+		accentDark = Color3.fromRGB(0, 100, 100),
 	},
 	AUDIO = {
-		accent = Color3.fromRGB(0, 255, 255),      -- Циан
-		accentDim = Color3.fromRGB(0, 150, 150),
-		accentDark = Color3.fromRGB(0, 80, 80),
+		accent = Color3.fromRGB(255, 0, 255),      -- Розовый
+		accentDim = Color3.fromRGB(180, 0, 180),
+		accentDark = Color3.fromRGB(100, 0, 100),
 	},
 	GAMEPLAY = {
-		accent = Color3.fromRGB(0, 255, 255),      -- Циан
-		accentDim = Color3.fromRGB(0, 150, 150),
-		accentDark = Color3.fromRGB(0, 80, 80),
+		accent = Color3.fromRGB(255, 215, 0),      -- Золотой
+		accentDim = Color3.fromRGB(180, 150, 0),
+		accentDark = Color3.fromRGB(100, 85, 0),
 	},
 	CONTROLS = {
-		accent = Color3.fromRGB(0, 255, 255),      -- Циан
-		accentDim = Color3.fromRGB(0, 150, 150),
-		accentDark = Color3.fromRGB(0, 80, 80),
+		accent = Color3.fromRGB(0, 200, 255),      -- Голубой
+		accentDim = Color3.fromRGB(0, 140, 180),
+		accentDark = Color3.fromRGB(0, 80, 100),
 	},
 	CODES = {
-		accent = Color3.fromRGB(0, 255, 255),      -- Циан
-		accentDim = Color3.fromRGB(0, 150, 150),
-		accentDark = Color3.fromRGB(0, 80, 80),
+		accent = Color3.fromRGB(100, 255, 150),    -- Зелёный
+		accentDim = Color3.fromRGB(70, 180, 105),
+		accentDark = Color3.fromRGB(40, 100, 60),
 	},
 }
 
